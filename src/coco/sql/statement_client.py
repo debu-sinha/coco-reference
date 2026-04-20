@@ -127,6 +127,16 @@ class StatementClient:
         """
         config = get_config()
 
+        # Prepend a SQL comment with user_id + thread_id so every row in
+        # system.query.history.statement_text carries the attribution
+        # needed to split warehouse cost by user. Safe no-op in tests:
+        # falls back to "unknown" when no user context is set.
+        from coco.observability.user_context import get_user_context
+
+        uid, tid = get_user_context()
+        if uid != "unknown" or tid != "unknown":
+            sql = f"/* coco_user_id={uid}, coco_thread_id={tid} */\n{sql}"
+
         url = f"{self.api_base}/statements"
 
         payload = {

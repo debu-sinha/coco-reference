@@ -42,6 +42,7 @@ from coco.agent.signatures import (
     SQLGeneratorSignature,
 )
 from coco.config import get_config
+from coco.observability.user_context import set_user_context
 
 logger = logging.getLogger(__name__)
 
@@ -452,6 +453,23 @@ class CocoAgent:
                 },
             )
             return
+
+        # Publish user_id + thread_id as request-scoped context so the SQL
+        # statement client and other tools can tag their requests for
+        # per-user cost attribution in system.billing + system.query.history.
+        set_user_context(user_id, thread_id)
+
+        # Inject the same attribution into the LM request so it lands in
+        # the serving endpoint inference table. LiteLLM forwards
+        # extra_headers to the upstream HTTP call.
+        try:
+            lm = dspy.settings.lm
+            if lm is not None and hasattr(lm, "kwargs"):
+                headers = dict(lm.kwargs.get("extra_headers") or {})
+                headers["X-Databricks-Usage-Context"] = f"user_id={user_id},thread_id={thread_id}"
+                lm.kwargs["extra_headers"] = headers
+        except Exception as e:
+            logger.debug("Could not set LM usage-context header: %s", e)
 
         trajectory = {}
         with mlflow.start_span("react_agent") as span:

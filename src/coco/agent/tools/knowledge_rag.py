@@ -10,10 +10,12 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
+import mlflow
 from databricks.vector_search.client import VectorSearchClient
 
 from coco.agent.models import KnowledgeRAGResult
 from coco.config import get_config
+from coco.observability.user_context import get_user_context
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +41,19 @@ async def retrieve_knowledge(
     Returns:
         KnowledgeRAGResult with the chunks list populated. On any failure
         (index not yet ready, VS unavailable, etc.) returns an empty
-        result and logs the error — the agent treats RAG as best-effort.
+        result and logs the error. The agent treats RAG as best-effort.
     """
+    # Attribute the VS query to the current user + thread. VS cost is
+    # endpoint-uptime based so this does not shift dollars, but it lets
+    # traces be joined back per user for usage analytics.
+    uid, tid = get_user_context()
+    try:
+        span = mlflow.get_current_active_span()
+        if span is not None:
+            span.set_attributes({"user_id": uid, "thread_id": tid})
+    except Exception:
+        pass
+
     try:
         config = get_config()
         vs_config = config.vector_search
