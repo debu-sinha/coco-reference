@@ -1,8 +1,8 @@
 -- Warehouse utilization: active query time vs. idle time.
 --
 -- Directly addresses the "a warehouse is sitting there waiting and
--- racking up cost" anxiety Andrew flagged in the 2026-04 Slack
--- thread. Makes the case for aggressive auto-stop (or serverless
+-- racking up cost" concern that surfaces in most cost reviews.
+-- Makes the case for aggressive auto-stop (or serverless
 -- entirely) by showing exactly how much of the billed window was
 -- actually doing useful work.
 --
@@ -35,13 +35,13 @@ WITH billed AS (
 ),
 queried AS (
     SELECT
-        warehouse_id,
+        compute.warehouse_id                         AS warehouse_id,
         COUNT(*)                                     AS query_count,
         SUM(total_duration_ms) / 1000.0              AS query_seconds
     FROM system.query.history
     WHERE start_time >= CURRENT_TIMESTAMP() - INTERVAL 14 DAYS
-        AND warehouse_id IS NOT NULL
-    GROUP BY warehouse_id
+        AND compute.warehouse_id IS NOT NULL
+    GROUP BY compute.warehouse_id
 )
 SELECT
     b.warehouse_id,

@@ -25,8 +25,8 @@ WITH window AS (
     SELECT
         statement_id,
         executed_by,
-        workload_name,
-        warehouse_id,
+        client_application                         AS source_app,
+        compute.warehouse_id                       AS warehouse_id,
         statement_type,
         statement_text,
         start_time,
@@ -49,7 +49,7 @@ WITH window AS (
 SELECT
     start_time,
     executed_by,
-    workload_name,
+    source_app,
     warehouse_id,
     statement_type,
     ROUND(total_duration_ms / 1000.0, 1) AS duration_s,
