@@ -307,17 +307,22 @@ def main() -> int:
                 )
                 try:
                     _mg.register_prompt(name=probe_prompt, template="preflight probe")
-                    ok("MLflow Managed Prompt Registry preview flag is enabled")
+                    ok("MLflow Prompt Registry preview flag is enabled")
+                    # mlflow.genai has no delete_prompt helper. Prompts are
+                    # registered as UC registered models under the hood, so
+                    # use MlflowClient.delete_registered_model to clean up.
                     try:
-                        _mg.delete_prompt(name=probe_prompt)
+                        import mlflow as _mlflow
+
+                        _mlflow.MlflowClient().delete_registered_model(name=probe_prompt)
                     except Exception:
-                        pass  # leave dangling, not harmful
+                        pass  # one leftover probe row is harmless
                 except Exception as e:
                     fail(
-                        f"MLflow Prompt Registry probe FAILED. The 'Managed MLflow "
+                        f"MLflow Prompt Registry probe FAILED. The 'MLflow "
                         f"Prompt Registry' preview flag is likely not enabled, or "
-                        f"you lack UC write permission. Enable it under Settings > "
-                        f"Preview features. Error: {type(e).__name__}: {str(e)[:150]}"
+                        f"you lack UC write permission. Enable it from your username "
+                        f"menu -> Previews. Error: {type(e).__name__}: {str(e)[:150]}"
                     )
                 if ephemeral_schema:
                     try:
