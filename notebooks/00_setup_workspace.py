@@ -20,6 +20,13 @@ dbutils.widgets.text("app_name", "coco-cohort-copilot", "Databricks App name")
 dbutils.widgets.text(
     "agent_repo_volume", "/Workspace/Repos/coco-reference", "Path to cloned repo or volume mount"
 )
+# "minimal" mode skips the optional resources (Lakebase, Vector Search).
+# Useful for: first-time learners who want to see the core agent work
+# without provisioning two more preview services, or workspaces that
+# don't have Lakebase / VS available, or cost-sensitive test runs.
+# The app will boot without Lakebase (sessions will 503 at runtime) and
+# without a VS index (the retrieve_knowledge tool returns empty).
+dbutils.widgets.dropdown("minimal", "false", ["false", "true"], "Minimal mode (skip Lakebase + VS)")
 
 # Retrieve widget values
 catalog = dbutils.widgets.get("catalog")
@@ -30,6 +37,7 @@ vs_endpoint = dbutils.widgets.get("vs_endpoint")
 agent_endpoint = dbutils.widgets.get("agent_endpoint")
 app_name = dbutils.widgets.get("app_name")
 agent_repo_volume = dbutils.widgets.get("agent_repo_volume")
+minimal = dbutils.widgets.get("minimal").lower() == "true"
 
 print(f"Catalog: {catalog}")
 print(f"Schema: {schema}")
@@ -39,6 +47,7 @@ print(f"Vector Search endpoint: {vs_endpoint}")
 print(f"Agent endpoint: {agent_endpoint}")
 print(f"App name: {app_name}")
 print(f"Agent repo volume: {agent_repo_volume}")
+print(f"Minimal mode: {minimal}  (Lakebase + VS {'SKIPPED' if minimal else 'included'})")
 
 # COMMAND ----------
 # MAGIC %md
@@ -60,6 +69,7 @@ vs_endpoint = dbutils.widgets.get("vs_endpoint")
 agent_endpoint = dbutils.widgets.get("agent_endpoint")
 app_name = dbutils.widgets.get("app_name")
 agent_repo_volume = dbutils.widgets.get("agent_repo_volume")
+minimal = dbutils.widgets.get("minimal").lower() == "true"
 
 import os
 import subprocess
@@ -181,6 +191,7 @@ vs_endpoint = dbutils.widgets.get("vs_endpoint")
 agent_endpoint = dbutils.widgets.get("agent_endpoint")
 app_name = dbutils.widgets.get("app_name")
 agent_repo_volume = dbutils.widgets.get("agent_repo_volume")
+minimal = dbutils.widgets.get("minimal").lower() == "true"
 knowledge_vol = "coco_knowledge"
 artifacts_vol = "coco_artifacts"
 
@@ -539,64 +550,66 @@ except Exception:
 # Create the Delta Sync index over knowledge_chunks.
 vs_index_name = f"{catalog}.{schema}.coco_knowledge_idx"
 vs_source_table = f"{catalog}.{schema}.knowledge_chunks"
+index_name = vs_index_name  # used downstream in setup_output regardless
 
-print(f"Provisioning Vector Search index: {vs_index_name}")
-print(f"  source: {vs_source_table}")
-print("  primary_key: chunk_id, embedding_source: content")
+if minimal:
+    print("minimal=true: skipping Vector Search index creation.")
+else:
+    print(f"Provisioning Vector Search index: {vs_index_name}")
+    print(f"  source: {vs_source_table}")
+    print("  primary_key: chunk_id, embedding_source: content")
 
-from coco.config import get_config as _get_coco_config
+    from coco.config import get_config as _get_coco_config
 
-_vs_cfg = _get_coco_config().vector_search
-_embed_model = _vs_cfg.embedding_model
+    _vs_cfg = _get_coco_config().vector_search
+    _embed_model = _vs_cfg.embedding_model
 
-print(f"  embedding model: {_embed_model}")
+    print(f"  embedding model: {_embed_model}")
 
-try:
-    _vs_ws.vector_search_indexes.get_index(index_name=vs_index_name)
-    print(f"Index '{vs_index_name}' already exists.")
-except Exception:
-    # SDK versions differ in their API shapes. Use the REST API
-    # directly for maximum compatibility across workspace runtimes.
-    import json
+    try:
+        _vs_ws.vector_search_indexes.get_index(index_name=vs_index_name)
+        print(f"Index '{vs_index_name}' already exists.")
+    except Exception:
+        # SDK versions differ in their API shapes. Use the REST API
+        # directly for maximum compatibility across workspace runtimes.
+        import json
 
-    _vs_body = {
-        "name": vs_index_name,
-        "endpoint_name": vs_endpoint,
-        "primary_key": "chunk_id",
-        "index_type": "DELTA_SYNC",
-        "delta_sync_index_spec": {
-            "source_table": vs_source_table,
-            "pipeline_type": "TRIGGERED",
-            "embedding_source_columns": [
-                {
-                    "name": "content",
-                    "embedding_model_endpoint_name": _embed_model,
-                }
-            ],
-        },
-    }
-    _vs_resp = _vs_ws.api_client.do(
-        "POST",
-        "/api/2.0/vector-search/indexes",
-        body=_vs_body,
-    )
-    print(f"Index creation initiated: {_vs_resp.get('name', vs_index_name)}")
-    print("It will sync in the background.")
+        _vs_body = {
+            "name": vs_index_name,
+            "endpoint_name": vs_endpoint,
+            "primary_key": "chunk_id",
+            "index_type": "DELTA_SYNC",
+            "delta_sync_index_spec": {
+                "source_table": vs_source_table,
+                "pipeline_type": "TRIGGERED",
+                "embedding_source_columns": [
+                    {
+                        "name": "content",
+                        "embedding_model_endpoint_name": _embed_model,
+                    }
+                ],
+            },
+        }
+        _vs_resp = _vs_ws.api_client.do(
+            "POST",
+            "/api/2.0/vector-search/indexes",
+            body=_vs_body,
+        )
+        print(f"Index creation initiated: {_vs_resp.get('name', vs_index_name)}")
+        print("It will sync in the background.")
 
-# Describe the final state so the notebook output captures it.
-print("\nIndex describe():")
-try:
-    _idx_info = _vs_ws.vector_search_indexes.get_index(index_name=vs_index_name)
-    _idx_status = getattr(_idx_info, "status", None)
-    if _idx_status:
-        print(f"  ready: {getattr(_idx_status, 'ready', '?')}")
-        print(f"  indexed_rows: {getattr(_idx_status, 'indexed_row_count', '?')}")
-    else:
-        print(f"  index found: {vs_index_name}")
-except Exception as e:
-    print(f"  describe() failed (non-fatal): {e}")
-
-index_name = vs_index_name  # used downstream in setup_output
+    # Describe the final state so the notebook output captures it.
+    print("\nIndex describe():")
+    try:
+        _idx_info = _vs_ws.vector_search_indexes.get_index(index_name=vs_index_name)
+        _idx_status = getattr(_idx_info, "status", None)
+        if _idx_status:
+            print(f"  ready: {getattr(_idx_status, 'ready', '?')}")
+            print(f"  indexed_rows: {getattr(_idx_status, 'indexed_row_count', '?')}")
+        else:
+            print(f"  index found: {vs_index_name}")
+    except Exception as e:
+        print(f"  describe() failed (non-fatal): {e}")
 
 # COMMAND ----------
 # MAGIC %md

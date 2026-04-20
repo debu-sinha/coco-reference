@@ -38,6 +38,9 @@ variables:
   agent_endpoint_url:
     description: "URL of the agent Model Serving endpoint (filled per target)"
     default: ""
+  minimal:
+    description: "If 'true', skip optional resources (Lakebase, Vector Search). Agent deploys against the core stack only — no session persistence, no knowledge RAG."
+    default: "false"
 
 resources:
   jobs:
@@ -60,6 +63,7 @@ resources:
               agent_endpoint: ${var.agent_endpoint}
               app_name: ${var.app_name}
               agent_repo_volume: ${workspace.file_path}
+              minimal: ${var.minimal}
           environment_key: default
           timeout_seconds: 3600
       max_concurrent_runs: 1

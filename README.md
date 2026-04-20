@@ -104,6 +104,18 @@ All resources are namespaced by `unique_id` so multiple users can deploy to the 
 | Databricks App | `coco-<id>` | FastAPI + HTMX chat UI, SP-only auth via `X-Forwarded-Email` [(auth.py)](src/coco/app/auth.py) |
 | MLflow experiment | `/Users/<email>/coco-agent` | Per-user. Traces, runs, model artifacts. **No fallback** — setup errors loudly if `COCO_MLFLOW_EXPERIMENT` is unset. This is [intentional](src/coco/agent/prompts/__init__.py) so traces can never silently land in a shared experiment. |
 
+### Minimal mode
+
+Pass `--var minimal=true` to `bundle run setup_workspace` and the Vector Search index creation step is skipped. The VS endpoint is still provisioned (cheap, idempotent), and Lakebase still runs. The agent deploys either way — its `retrieve_knowledge` tool just returns empty results when the index isn't populated.
+
+```bash
+databricks bundle run setup_workspace -t demo -p PROFILE \
+  --var unique_id=YOUR_ID --var warehouse_id=WH_ID --var catalog=CATALOG \
+  --var minimal=true
+```
+
+Use this for quick learning deploys, workspaces where VS index creation is slow or restricted, or cost-sensitive test runs. Full Lakebase-skip (for workspaces without Lakebase) is planned but not tested yet — see [`CHANGELOG.md`](CHANGELOG.md).
+
 ### Multi-user isolation
 
 Two users deploying to the same workspace with different `unique_id` values get completely separate resources:
