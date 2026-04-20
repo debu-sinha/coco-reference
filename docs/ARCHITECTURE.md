@@ -40,26 +40,31 @@ Thread
       └─ trace_id (MLflow trace)
 ```
 
-### 2. ResponsesAgent (DSPy Orchestrator)
+### 2. CocoAgent (`dspy.ReAct` with native tool calling)
 
-**Purpose:** Main AI agent that plans, calls tools, and synthesizes responses.
+**Purpose:** The AI agent that answers cohort questions. Uses `dspy.ReAct` with native function calling — no separate planner prompt, no keyword matching, no terminal synthesize step.
 
 **Location:** `src/coco/agent/responses_agent.py`
 
-**Workflow:**
-1. **Receive message** — User query (e.g., "Type 2 diabetes patients on metformin")
-2. **Plan** — LLM breaks down into subgoals (identify codes → generate SQL → execute → synthesize)
-3. **Call tools** (in parallel or sequence):
-   - **ClinicalCodeIdentifier** — Converts "Type 2 diabetes" → ICD-10 code E11.9
-   - **SQLGenerator** — "... on metformin" → JOIN prescriptions WHERE drug = 'metformin'
-   - **SQLExecutor** — Run SQL on warehouse, stream results
-   - **KnowledgeRAG** — Fetch clinical context (optional)
-4. **Synthesize** — Combine tool outputs into natural language response with sample data
+**How it works:**
+1. `CocoAgent.__init__` configures a DSPy `LM` pointing at the FMAPI serving endpoint (`databricks-claude-sonnet-4-6`) and builds a `dspy.ReAct` module with the top-level `CohortQuerySignature` and 5 tool functions.
+2. Each call to `predict_stream(messages)` refreshes the FMAPI Bearer token, opens a `react_agent` MLflow span, and calls `self.react(question=user_msg)`. `mlflow.dspy.autolog()` attaches an LM sub-span per ReAct iteration.
+3. `dspy.ReAct` loops for up to `MAX_ITERS=7` iterations. Each iteration is one LLM call that either invokes one of the 5 tools or emits the final answer via the built-in `finish` action. The model IS the planner — no keyword matching.
+4. The agent returns the final answer plus the full trajectory (step-by-step thoughts + observations), which the App renders as a collapsible `<details>` block under the assistant message.
 
-**DSPy Signatures:**
-- `ClinicalCodeSignature` — Input: query, context; Output: codes[], rationale
-- `SQLGeneratorSignature` — Input: query, schema, codes; Output: sql, rationale
-- `ResponseSynthesizerSignature` — Input: query, results; Output: response, show_sql, next_steps
+**Tools (all decorated with `@mlflow.trace`):**
+- `inspect_schema` — Lists tables/columns in the configured UC schema. Cached for the lifetime of the serving container.
+- `identify_clinical_codes` — DSPy `ChainOfThought` over `ClinicalCodeSignature`; returns ICD-10 / NDC / CPT codes.
+- `generate_sql` — DSPy `ChainOfThought` over `SQLGeneratorSignature`; returns Databricks SQL. Runs through the guardrails before returning.
+- `execute_sql` — Calls the Statement Execution API through the configured warehouse. Read-only + schema-allowlist enforced by `guardrails.validate_sql_query`.
+- `retrieve_knowledge` — Hybrid RAG over the `coco_knowledge_idx` Vector Search index (BM25 + BGE embedding).
+
+**DSPy Signatures** (in `src/coco/agent/signatures.py`):
+- `CohortQuerySignature` — top-level signature handed to `dspy.ReAct` (question → answer).
+- `ClinicalCodeSignature` — used by `identify_clinical_codes`.
+- `SQLGeneratorSignature` — used by `generate_sql`.
+
+Every signature is loaded with instructions from the MLflow Prompt Registry via `load_prompt(name).with_instructions(...)`; see `src/coco/agent/prompts/`.
 
 ### 3. Tool Implementations
 
@@ -315,34 +320,23 @@ resources:
 
 ### User Query → Response
 
-```
-1. User asks in UI: "Type 2 diabetes on metformin"
-   │
-   ├─→ FastAPI: POST /api/threads/{id}/messages
-   │
-   ├─→ ResponsesAgent.process_message()
-   │   ├─→ ClinicalCodeIdentifier (LLM): "diabetes" → E11.9
-   │   ├─→ SQLGenerator (LLM): "E11.9 + metformin" → SQL
-   │   ├─→ SQLExecutor: Execute SQL → 42 patients found
-   │   └─→ ResponseSynthesizer (LLM): Synthesize response
-   │
-   └─→ SSE: Stream "thinking..." → tool calls → results → final response
-```
+![CoCo request flow](design/diagrams/request-flow.svg)
+
+The end-to-end path for a cohort question:
+
+1. Browser POSTs the compose form to `/threads/{id}/send`. The App inserts the user message into Lakebase, returns an HTML fragment with both bubbles, and the assistant bubble's SSE extension opens a stream to `/threads/{id}/stream`.
+2. The SSE handler loads thread history from Lakebase, invokes the Mosaic AI agent serving endpoint (SP auth, non-streaming), persists the answer, then chunks the answer out as `event: message` frames.
+3. Inside the agent, `dspy.ReAct` runs for up to `MAX_ITERS=7` iterations. Each iteration is one LLM call. The model decides whether to call a tool (`inspect_schema`, `identify_clinical_codes`, `generate_sql`, `execute_sql`, `retrieve_knowledge`) or to emit the final answer via the built-in `finish` action.
 
 ### Feedback Loop
 
-```
-User rates response 👍
-   │
-   └─→ POST /api/messages/{id}/feedback
-       ├─→ Lakebase: Store feedback
-       ├─→ MLflow: Log interaction
-       └─→ (Weekly) 03_optimize_dspy.py:
-           ├─→ Load last 7 days of thumbs-up interactions from Lakebase
-           ├─→ Run mlflow.genai.optimize_prompts with GepaPromptOptimizer
-           ├─→ Score candidates with Correctness judge on held-out eval
-           └─→ Register new prompt version + flip @production alias
-```
+![CoCo evaluation + optimization loops](design/diagrams/eval-architecture.svg)
+
+The feedback path:
+
+1. User rates an assistant message (`POST /api/messages/{id}/feedback`). The row lands in Lakebase (`feedback` table, unique on `(message_id, user_id)`).
+2. Notebook `03_optimize_dspy` runs weekly. It pulls the last 7 days of thumbs-up feedback from Lakebase, builds a `dspy.Example(question, answer)` set, and invokes `mlflow.genai.optimize_prompts` with `GepaPromptOptimizer` and a `Correctness` judge scoped to a held-out eval slice.
+3. If the new prompt beats the current `@production` version by more than 2% on the eval, it's registered as a new version in the MLflow Prompt Registry and the `@production` alias is moved. The next serving invocation picks it up via `load_prompt("cohort_query")` — no redeploy.
 
 ## Configuration & Secrets
 

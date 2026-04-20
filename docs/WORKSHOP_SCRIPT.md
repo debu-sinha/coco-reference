@@ -114,37 +114,15 @@ User: "Type 2 diabetes patients on metformin"
 ### Slide 4: Under the Hood (5 min)
 
 **Architecture diagram:**
-```
-┌──────────────┐
-│  Web UI      │ (FastAPI + HTMX)
-└──────┬───────┘
-       │
-┌──────▼──────────────────────┐
-│    ResponsesAgent (DSPy)     │
-│  - Plans query               │
-│  - Calls tools              │
-│  - Synthesizes response     │
-└──────┬──────────────────────┘
-       │
-   ┌───┴────┬────────┬──────────┐
-   │        │        │          │
-┌──▼──┐ ┌──▼──┐ ┌──▼──┐  ┌────▼──┐
-│Code │ │SQL  │ │SQL  │  │Know-  │
-│ID   │ │Gen  │ │Exec │  │ledge  │
-└─────┘ └─────┘ └──┬──┘  │RAG    │
-                   │     └───────┘
-                ┌──▼────┐
-                │ DW    │
-                │(SQL)  │
-                └───────┘
-```
+
+![CoCo request flow](design/diagrams/request-flow.svg)
 
 **Key innovations:**
-1. **Clinical codes** — LLM → ICD-10/NDC codes with confidence
-2. **SQL generation** — No manual writing; LLM writes Databricks SQL
-3. **Guardrails** — Read-only enforcement + schema whitelist
-4. **Streaming** — Real-time feedback while executing
-5. **Feedback loop** — Thumbs up/down trains the model
+1. **dspy.ReAct with native tool calling** — the model picks tools from Python function signatures, no keyword-matched planner (see `src/coco/agent/responses_agent.py`, `MAX_ITERS=7`)
+2. **Clinical codes** — `identify_clinical_codes` tool returns ICD-10/NDC codes with rationale
+3. **SQL generation + guardrails** — `generate_sql` produces Databricks SQL, `execute_sql` validates read-only + schema allowlist before running
+4. **Streaming** — Server-sent events chunk the answer to the browser while the agent runs
+5. **Feedback loop** — Thumbs up/down drives weekly GEPA optimization via `mlflow.genai.optimize_prompts`
 
 **Prompt optimization:**
 - Show 03_optimize_dspy.py concept

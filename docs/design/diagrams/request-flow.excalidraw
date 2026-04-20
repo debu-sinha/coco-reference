@@ -233,14 +233,14 @@
       "y": 533,
       "width": 260,
       "height": 42,
-      "text": "Agent Serving\nDSPy ReAct on Mosaic AI",
+      "text": "Agent Serving\ndspy.ReAct (MAX_ITERS=7) on Mosaic AI",
       "fontSize": 18,
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
       "baseline": 16,
       "containerId": null,
-      "originalText": "Agent Serving\nDSPy ReAct on Mosaic AI",
+      "originalText": "Agent Serving\ndspy.ReAct (MAX_ITERS=7) on Mosaic AI",
       "lineHeight": 1.25
     },
     {
@@ -410,14 +410,14 @@
       "y": 283,
       "width": 280,
       "height": 42,
-      "text": "Claude Sonnet 4.6 (FMAPI)\nplan + synthesize via AI Gateway",
+      "text": "Claude Sonnet 4.6 (FMAPI)\nserving-endpoint: databricks-claude-sonnet-4-6",
       "fontSize": 18,
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
       "baseline": 16,
       "containerId": null,
-      "originalText": "Claude Sonnet 4.6 (FMAPI)\nplan + synthesize via AI Gateway",
+      "originalText": "Claude Sonnet 4.6 (FMAPI)\nserving-endpoint: databricks-claude-sonnet-4-6",
       "lineHeight": 1.25
     },
     {

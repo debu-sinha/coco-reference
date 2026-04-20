@@ -15,98 +15,18 @@ same MLflow experiment as a substrate:
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  %% ============================================================
-  %% PRODUCTION LOOP
-  %% ============================================================
-  subgraph PROD["PRODUCTION LOOP"]
-    direction TB
-    U[User in browser]
-    APP[Databricks App<br/>FastAPI + HTMX]
-    AGENT[Model Serving Endpoint<br/>CocoResponsesAgent]
-    WH[(SQL Warehouse<br/>UC tables)]
-    PR[(Prompt Registry<br/>catalog.schema.cohort_query)]
-    U <--> APP
-    APP -->|invoke| AGENT
-    AGENT -->|load_prompt| PR
-    AGENT -->|inspect_schema<br/>execute_sql| WH
-    AGENT -->|reply| APP
-  end
+![Evaluation + optimization architecture](diagrams/eval-architecture.svg)
 
-  %% ============================================================
-  %% OBSERVABILITY LOOP
-  %% ============================================================
-  subgraph OBS["OBSERVABILITY LOOP"]
-    direction TB
-    TR[(MLflow Traces<br/>per request)]
-    FB[(Lakebase feedback<br/>UNIQUE message_id+user_id)]
-    INF[(Inference Tables<br/>serving endpoint)]
-  end
-  AGENT -->|mlflow.dspy.autolog| TR
-  APP -->|thumbs up/down| FB
-  AGENT -->|every request| INF
+The diagram shows the four loops that share the MLflow experiment:
+production → observability → evaluation → optimization. Source:
+`diagrams/eval-architecture.excalidraw`. Open in
+[excalidraw.com](https://excalidraw.com) to edit and re-export the SVG.
 
-  %% ============================================================
-  %% EVALUATION LOOP
-  %% ============================================================
-  subgraph EVAL["EVALUATION LOOP  (notebook 02)"]
-    direction TB
-    SCN[evaluation/<br/>scenarios.yaml]
-    GENEVAL["mlflow.genai.evaluate()"]
-    subgraph SCORERS["Scorers"]
-      direction TB
-      CODESCO[Code scorers<br/>@mlflow.evaluate.scorer]
-      BUILTIN[Built-in judges<br/>Correctness / Guidelines /<br/>RelevanceToQuery / Safety]
-      CUSTOMJUDGE["Custom judges<br/>make_judge()"]
-    end
-    EVALRUN[(MLflow eval run<br/>per-row + aggregate)]
-  end
-  SCN --> GENEVAL
-  GENEVAL -->|predict_fn<br/>= AgentClient.invoke| AGENT
-  TR -. read for trace-based scorers .-> CUSTOMJUDGE
-  GENEVAL --> CODESCO
-  GENEVAL --> BUILTIN
-  GENEVAL --> CUSTOMJUDGE
-  CODESCO --> EVALRUN
-  BUILTIN --> EVALRUN
-  CUSTOMJUDGE --> EVALRUN
-
-  %% ============================================================
-  %% JUDGE BUILDER LOOP (alignment of custom judges)
-  %% ============================================================
-  subgraph JB["JUDGE ALIGNMENT LOOP  (Judge Builder app)"]
-    direction TB
-    REV[Domain expert<br/>reviews traces]
-    EXPLABEL[(Expert labels<br/>thumbs + comments)]
-    ALIGN[Judge alignment<br/>optimize judge vs labels]
-    JUDGEV2[Aligned judge<br/>new version in Prompt Registry]
-  end
-  TR -->|sample traces| REV
-  REV --> EXPLABEL
-  EXPLABEL --> ALIGN
-  ALIGN --> JUDGEV2
-  JUDGEV2 -. reuse .-> CUSTOMJUDGE
-
-  %% ============================================================
-  %% OPTIMIZATION LOOP (mlflow.genai.optimize_prompts + GEPA)
-  %% ============================================================
-  subgraph OPT["OPTIMIZATION LOOP  (notebook 03, weekly)"]
-    direction TB
-    TRAIN[Pull thumbs-up from Lakebase<br/>last 7 days]
-    PAIRS["dspy.Example&#40;question, answer&#41; pairs"]
-    MIPRO["mlflow.genai.optimize_prompts<br/>GepaPromptOptimizer + Correctness"]
-    DELTA{improvement<br/>&gt; 2%?}
-    NEWPROMPT[New optimized prompt]
-  end
-  FB --> TRAIN
-  TRAIN --> PAIRS
-  PAIRS --> MIPRO
-  CUSTOMJUDGE -. metric .-> MIPRO
-  MIPRO --> DELTA
-  DELTA -->|yes| NEWPROMPT
-  NEWPROMPT -->|mlflow.genai.register_prompt| PR
-```
+Today, the **evaluation loop** uses 4 code scorers in
+`src/coco/observability/scorers.py` (`sql_validity`, `clinical_code_accuracy`,
+`response_relevance`, `phi_leak`). The **custom judges via `make_judge()`**
+and the **judge-builder alignment loop** are described below as planned
+work; neither is wired into notebook 02 today.
 
 ## Component walkthrough
 

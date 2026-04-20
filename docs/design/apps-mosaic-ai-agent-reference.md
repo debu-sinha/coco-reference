@@ -77,31 +77,9 @@ the same landmines. This doc is the shortcut.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    User[User browser]
-    subgraph App[Databricks App container]
-        FastAPI[FastAPI + HTMX + SSE]
-        AuthHdr[x-forwarded-access-token]
-    end
-    subgraph DatabricksWorkspace[Databricks workspace]
-        AgentEP[Mosaic AI Agent<br/>Serving endpoint]
-        Lakebase[(Lakebase<br/>Postgres)]
-        Warehouse[SQL Warehouse]
-        UCTables[(Unity Catalog<br/>cohort tables)]
-        GatewayLLM[Claude Sonnet<br/>via Gateway route]
-        VS[(Vector Search<br/>index)]
-    end
+![Apps + Mosaic AI reference architecture](diagrams/apps-mosaic-ai-reference.svg)
 
-    User -->|"POST /threads/id/send"| FastAPI
-    FastAPI -->|"GET /threads/id/stream<br/>SSE"| User
-    FastAPI -->|psycopg pool| Lakebase
-    FastAPI -->|SP-auth invoke| AgentEP
-    AgentEP -->|plan + synthesize| GatewayLLM
-    AgentEP -->|execute_sql| Warehouse
-    Warehouse --> UCTables
-    AgentEP -->|knowledge_rag| VS
-```
+The diagram source is `diagrams/apps-mosaic-ai-reference.excalidraw` — open in [excalidraw.com](https://excalidraw.com) to edit and re-export the SVG.
 
 Request flow for a single cohort question:
 
@@ -117,11 +95,12 @@ Request flow for a single cohort question:
    Lakebase, then chunks the reply text out as `event: message` frames so
    the browser sees it land progressively. Emits `event: close` at the end
    so the HTMX SSE extension tears the connection down cleanly.
-4. Inside the agent, a keyword-matched planner picks tools
-   (`identify_clinical_codes`, `generate_sql`, `execute_sql`, etc.) for up
-   to ten iterations, then falls through to a terminal
-   `_synthesize_response` call regardless of whether it reached a `respond`
-   action (see gotcha §3.1).
+4. Inside the agent, `dspy.ReAct` runs with `max_iters=7`. Each iteration
+   is one LLM call that either invokes one of five tools
+   (`inspect_schema`, `identify_clinical_codes`, `generate_sql`,
+   `execute_sql`, `retrieve_knowledge`) or emits the final answer via the
+   built-in `finish` action. No separate keyword-matched planner, no
+   separate synthesize prompt (see gotcha §3.1 for the migration).
 
 ## Gotchas
 
@@ -492,54 +471,54 @@ for any project that combines a front-end and an agent in the same repo.
 
 ### Agent behavior
 
-#### 3.1 Keyword-matched planner loops exhaust `max_iterations` without yielding an assistant event
+#### 3.1 Why we replaced the keyword-matched planner with `dspy.ReAct`
 
-**Symptom:** The agent endpoint returns a response whose content is
-literally the string `"(no response)"`. Simple greeting-style questions
-(`"hi"`, `"what can you do?"`) work correctly, but anything that triggers
-tool selection returns the fallback.
+**Historical symptom:** An earlier version of the agent used a
+keyword-matched planner where `_plan_next_action` asked the LLM for a
+tool name and string-matched the response against
+`clinical_codes`, `knowledge`, `schema`, `sql`, `execute`. When the LLM
+kept picking tool calls for ten iterations in a row, the loop exited
+without ever reaching `action == "respond"`. No
+`ResponsesAgentStreamEvent("assistant", ...)` was yielded, the entry
+wrapper returned its fallback string `"(no response)"`, and simple
+questions worked but anything that triggered tool selection failed.
 
-**Root cause:** The reference agent uses a keyword-matched planner where
-`_plan_next_action` asks the LLM for a tool name and string-matches the
-response against `clinical_codes`, `knowledge`, `schema`, `sql`, `execute`.
-If the LLM keeps picking tool calls for ten iterations in a row, the loop
-exits without ever reaching `action == "respond"`, which means no
-`ResponsesAgentStreamEvent("assistant", ...)` is ever yielded. The entry
-wrapper's `_extract_final_content` then returns its fallback string because
-no event matched `event_type == "assistant"`.
-
-**Fix:** Track whether an assistant event was emitted. After the loop, if
-the flag is still false, call `_synthesize_response` once more and yield
-a terminal assistant event built from whatever tool results were
-accumulated. This guarantees every invocation produces a user-facing
-answer, even when the planner runs out of budget.
+**Structural fix:** The current agent uses `dspy.ReAct` with native
+tool calling (`max_iters=7`). DSPy introspects each tool function's
+signature and docstring to build the JSON-schema tool definitions the
+LLM sees. The LLM returns structured tool-call blocks (not free-form
+text the planner has to string-match), and the ReAct module's
+built-in `finish` action produces the final answer. There is no
+scenario where the loop exits without yielding an answer, because
+`finish` is always available to the model and the trajectory carries
+the answer.
 
 ```python
-responded = False
-for iteration in range(max_iterations):
-    ...
-    if action == "respond":
-        yield ResponsesAgentStreamEvent("assistant", {...})
-        responded = True
-        break
-    ...
+class CocoAgent:
+    MAX_ITERS = 7
 
-if not responded:
-    logger.warning(
-        "Planner exhausted %d iterations without responding; "
-        "synthesizing terminal response from %d tool results.",
-        max_iterations, len(state.tool_results),
-    )
-    response = self._synthesize_response(messages, state, span)
-    yield ResponsesAgentStreamEvent("assistant", {"content": response, ...})
+    def __init__(self) -> None:
+        sig = CohortQuerySignature.with_instructions(load_prompt("cohort_query"))
+        self.react = dspy.ReAct(
+            sig,
+            tools=[
+                inspect_schema,
+                execute_sql,
+                identify_clinical_codes,
+                generate_sql,
+                retrieve_knowledge,
+            ],
+            max_iters=self.MAX_ITERS,
+        )
 ```
 
-**Reference:** `src/coco/agent/responses_agent.py::predict_stream`
+**Reference:** `src/coco/agent/responses_agent.py::CocoAgent` and
+`src/coco/agent/responses_agent.py::predict_stream`.
 
-**Architectural note:** The real fix is to replace keyword matching with
-structured tool-calling via DSPy signatures or native function-call
-semantics. The fallback is defense in depth, not a substitute. File this
-as a backlog item on the agent side.
+**Architectural note:** This is the same pattern Claude Code / MCP
+uses — tool schemas out, structured tool-use blocks back, runtime
+executes, model decides next step. No brittle keyword matching, no
+terminal `_synthesize_response` call, no dead-end iteration paths.
 
 ### Streaming UI with HTMX + SSE
 

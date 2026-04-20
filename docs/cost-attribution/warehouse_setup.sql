@@ -39,9 +39,10 @@ CREATE OR REPLACE WAREHOUSE ${WORKLOAD_NAME}_${ENV} WITH
   -- minimum allowed; dropping to 1-5 min is the single biggest
   -- cost saving after tagging itself.
   AUTO_STOP_MINS = 5,
-  -- Cap the cluster scale-out. Prevents a runaway LLM planner
-  -- (see the CoCo "keyword planner exhausted 10
-  -- iterations" bug) from triggering unlimited warehouse scale.
+  -- Cap the cluster scale-out. Prevents a runaway agent loop
+  -- (dspy.ReAct caps iterations at MAX_ITERS=7, but a badly
+  -- generated SQL statement could still scan wide) from
+  -- triggering unlimited warehouse scale.
   MIN_NUM_CLUSTERS = 1,
   MAX_NUM_CLUSTERS = 2,
   -- Photon is effectively free on serverless and strictly

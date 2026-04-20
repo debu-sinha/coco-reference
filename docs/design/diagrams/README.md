@@ -5,13 +5,15 @@ diagrams in this repo.
 
 ## Files
 
-| File | What it shows |
-|---|---|
-| `request-flow.excalidraw` | CoCo v2 end-to-end request flow — user question through the Databricks App, Lakebase, agent serving endpoint, and into the LLM / SQL / VS / MLflow tool fanout. |
+Every diagram here has a `.excalidraw` (editable source) and a `.svg`
+(render output). Docs in the repo reference the `.svg` directly.
 
-More to come. Until then, `docs/design/evaluation-architecture.md`
-and `docs/design/apps-mosaic-ai-agent-reference.md` carry their
-diagrams as Mermaid blocks embedded in the markdown.
+| Source | Render | What it shows |
+|---|---|---|
+| `request-flow.excalidraw` | `request-flow.svg` | End-to-end request flow — browser to Databricks App to dspy.ReAct agent to the tool fanout (FMAPI / SQL warehouse / Vector Search / MLflow). |
+| `apps-mosaic-ai-reference.excalidraw` | `apps-mosaic-ai-reference.svg` | The Apps + Mosaic AI reference architecture — one request through the stack with Lakebase and MLflow on the sides. |
+| `eval-architecture.excalidraw` | `eval-architecture.svg` | Four loops on one MLflow experiment: production, observability, evaluation, optimization. |
+| `mlflow-trace-structure.excalidraw` | `mlflow-trace-structure.svg` | One agent invocation as a span tree: `react_agent` root, five tool spans, LM sub-spans from `mlflow.dspy.autolog()`. |
 
 ## How to open / edit
 

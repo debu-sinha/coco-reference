@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="788" height="853" viewBox="176 -19 788 853">
+<defs><marker id="arrow-1e1e1e" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#1e1e1e" /></marker><style>text { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }</style></defs>
+<rect x="220" y="60" width="280" height="70" rx="8" stroke="#1e1e1e" fill="#ffd8a8" stroke-width="1" />
+<text x="230" y="101" font-size="18" fill="#1e1e1e">User question</text>
+<rect x="220" y="200" width="280" height="80" rx="8" stroke="#1e1e1e" fill="#d0bfff" stroke-width="1" />
+<text x="230" y="246" font-size="18" fill="#1e1e1e">Databricks App</text>
+<text x="230" y="268" font-size="18" fill="#1e1e1e">FastAPI + HTMX + SSE</text>
+<rect x="220" y="350" width="280" height="80" rx="8" stroke="#1e1e1e" fill="#a5d8ff" stroke-width="1" />
+<text x="230" y="396" font-size="18" fill="#1e1e1e">Lakebase</text>
+<text x="230" y="418" font-size="18" fill="#1e1e1e">threads / messages / feedback</text>
+<rect x="220" y="500" width="280" height="90" rx="8" stroke="#1e1e1e" fill="#b2f2bb" stroke-width="1" />
+<text x="230" y="551" font-size="18" fill="#1e1e1e">Agent Serving</text>
+<text x="230" y="574" font-size="18" fill="#1e1e1e">dspy.ReAct (MAX_ITERS=7) on Mosaic AI</text>
+<path d="M 360 130 L 360 195" stroke="#1e1e1e" fill="none" stroke-width="1" marker-end="url(#arrow-1e1e1e)" />
+<path d="M 360 280 L 360 345" stroke="#1e1e1e" fill="none" stroke-width="1" marker-end="url(#arrow-1e1e1e)" />
+<path d="M 360 430 L 360 495" stroke="#1e1e1e" fill="none" stroke-width="1" marker-end="url(#arrow-1e1e1e)" />
+<rect x="640" y="260" width="300" height="70" rx="8" stroke="#1e1e1e" fill="#ffc9c9" stroke-width="1" />
+<text x="650" y="301" font-size="18" fill="#1e1e1e">Claude Sonnet 4.6 (FMAPI)</text>
+<text x="650" y="324" font-size="18" fill="#1e1e1e">serving-endpoint: databricks-claude-sonnet-4-6</text>
+<path d="M 500 545 L 640 295" stroke="#1e1e1e" fill="none" stroke-width="1" marker-end="url(#arrow-1e1e1e)" />
+<rect x="640" y="380" width="300" height="70" rx="8" stroke="#1e1e1e" fill="#ffd8a8" stroke-width="1" />
+<text x="650" y="421" font-size="18" fill="#1e1e1e">SQL Warehouse</text>
+<text x="650" y="444" font-size="18" fill="#1e1e1e">execute cohort queries</text>
+<path d="M 500 545 L 640 415" stroke="#1e1e1e" fill="none" stroke-width="1" marker-end="url(#arrow-1e1e1e)" />
+<rect x="640" y="500" width="300" height="70" rx="8" stroke="#1e1e1e" fill="#a5d8ff" stroke-width="1" />
+<text x="650" y="541" font-size="18" fill="#1e1e1e">Vector Search</text>
+<text x="650" y="564" font-size="18" fill="#1e1e1e">clinical knowledge RAG</text>
+<path d="M 500 545 L 640 535" stroke="#1e1e1e" fill="none" stroke-width="1" marker-end="url(#arrow-1e1e1e)" />
+<rect x="640" y="620" width="300" height="70" rx="8" stroke="#1e1e1e" fill="#d0bfff" stroke-width="1" />
+<text x="650" y="661" font-size="18" fill="#1e1e1e">MLflow Prompt Registry</text>
+<text x="650" y="684" font-size="18" fill="#1e1e1e">versioned prompts @production</text>
+<path d="M 500 545 L 640 655" stroke="#1e1e1e" fill="none" stroke-width="1" marker-end="url(#arrow-1e1e1e)" />
+<rect x="640" y="740" width="300" height="70" rx="8" stroke="#1e1e1e" fill="#b2f2bb" stroke-width="1" />
+<text x="650" y="781" font-size="18" fill="#1e1e1e">MLflow Traces + Experiments</text>
+<text x="650" y="804" font-size="18" fill="#1e1e1e">every tool call + user attribution</text>
+<path d="M 500 545 L 640 775" stroke="#1e1e1e" fill="none" stroke-width="1" marker-end="url(#arrow-1e1e1e)" />
+<text x="200" y="31" font-size="26" fill="#1e1e1e">CoCo v2 — Request flow</text>
+</svg>

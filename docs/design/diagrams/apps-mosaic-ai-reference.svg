@@ -12,14 +12,14 @@ X-Forwarded-Email auth</text>
 threads / messages / runs / feedback</text>
 <rect x="400" y="340" width="400" height="80" rx="8" stroke="#1b1b1f" fill="#d3f9d8" stroke-width="1" />
 <text x="600" y="380" font-size="16" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">CocoAgent
-DSPy ReAct (max_turns=10)</text>
+dspy.ReAct (MAX_ITERS=7)</text>
 <rect x="840" y="340" width="260" height="80" rx="8" stroke="#1b1b1f" fill="#e5dbff" stroke-width="1" />
 <text x="970" y="380" font-size="15" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">MLflow experiment
 spans + traces</text>
 <rect x="80" y="480" width="260" height="90" rx="8" stroke="#1b1b1f" fill="#ffdeeb" stroke-width="1" />
-<text x="210" y="525" font-size="14" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">Mosaic AI Gateway
-route: coco-llm
-(Claude Sonnet 4.5)</text>
+<text x="210" y="525" font-size="14" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">FMAPI serving-endpoint
+databricks-claude-sonnet-4-6
+via dspy.LM("databricks/...")</text>
 <rect x="400" y="480" width="360" height="90" rx="8" stroke="#1b1b1f" fill="#ffdeeb" stroke-width="1" />
 <text x="580" y="525" font-size="14" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">Unity Catalog SQL
 Statement Execution API
@@ -35,7 +35,7 @@ coco_knowledge_idx
 <path d="M 500 420 L 210 478" stroke="#1b1b1f" fill="none" stroke-width="1" marker-end="url(#arrow-1b1b1f)" />
 <path d="M 600 420 L 580 478" stroke="#1b1b1f" fill="none" stroke-width="1" marker-end="url(#arrow-1b1b1f)" />
 <path d="M 700 420 L 950 478" stroke="#1b1b1f" fill="none" stroke-width="1" marker-end="url(#arrow-1b1b1f)" />
-<text x="80" y="602" font-size="12" fill="#868e96">every LLM call (planner + synthesizer)</text>
+<text x="80" y="602" font-size="12" fill="#868e96">one LLM call per ReAct iteration</text>
 <text x="400" y="602" font-size="12" fill="#868e96">guardrails: read-only + schema allowlist</text>
 <text x="820" y="602" font-size="12" fill="#868e96">clinical-knowledge RAG tool</text>
 </svg>
