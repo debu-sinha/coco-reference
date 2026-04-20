@@ -15,7 +15,7 @@ Before running the setup, confirm you have:
 
 - [ ] Workspace admin OR the specific permissions listed below
 - [ ] A serverless SQL warehouse (note the ID)
-- [ ] `databricks-claude-sonnet-4-5` (or equivalent) FMAPI endpoint available
+- [ ] `databricks-claude-sonnet-4-6` (or equivalent) FMAPI endpoint available
 - [ ] Databricks CLI installed + profile configured (`databricks auth login`)
 
 ## Permissions by resource
@@ -45,7 +45,7 @@ Before running the setup, confirm you have:
 
 | Permission | What it allows | Setup step |
 |-----------|---------------|------------|
-| `CAN_QUERY` on `databricks-claude-sonnet-4-5` | LLM calls from the agent | Step 7 (agent deploy) |
+| `CAN_QUERY` on `databricks-claude-sonnet-4-6` | LLM calls from the agent | Step 7 (agent deploy) |
 | `CAN_MANAGE` serving endpoints (or workspace admin) | Create the `coco-agent-<id>` endpoint | Step 7 |
 
 **How to grant:** ML -> Serving -> endpoint -> Permissions -> add your user
@@ -105,7 +105,7 @@ need them to pre-provision:
 
 1. **A catalog** (`coco_demo`) with `USE CATALOG` + `CREATE SCHEMA` granted to you
 2. **A serverless SQL warehouse** with `CAN_USE` granted to you
-3. **`CAN_QUERY` on `databricks-claude-sonnet-4-5`** serving endpoint
+3. **`CAN_QUERY` on `databricks-claude-sonnet-4-6`** serving endpoint
 4. **A Lakebase instance** (if you can't create one yourself)
 
 Everything else (schema, tables, volumes, VS endpoint, agent

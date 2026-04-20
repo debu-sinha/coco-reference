@@ -1,4 +1,4 @@
-"""Call databricks-claude-sonnet-4-5 from outside Databricks.
+"""Call databricks-claude-sonnet-4-6 from outside Databricks.
 
 Three working patterns, in order of increasing abstraction:
 
@@ -24,10 +24,10 @@ Create the PAT with:
 Then grant your principal CAN_QUERY on the endpoint:
 
     1. Workspace UI: Machine Learning -> Serving -> select
-       `databricks-claude-sonnet-4-5` -> Permissions -> Can Query ->
+       `databricks-claude-sonnet-4-6` -> Permissions -> Can Query ->
        add your user or SP.
     2. Or CLI: `databricks serving-endpoints update-permissions
-       databricks-claude-sonnet-4-5 --json '{"access_control_list":
+       databricks-claude-sonnet-4-6 --json '{"access_control_list":
        [{"user_name": "you@example.com",
        "permission_level": "CAN_QUERY"}]}'`
 
@@ -55,7 +55,7 @@ HOST = os.environ["DATABRICKS_HOST"].rstrip("/")
 if not HOST.startswith("http"):
     HOST = f"https://{HOST}"
 TOKEN = os.environ["DATABRICKS_TOKEN"]
-ENDPOINT_NAME = os.environ.get("DATABRICKS_SERVING_ENDPOINT", "databricks-claude-sonnet-4-5")
+ENDPOINT_NAME = os.environ.get("DATABRICKS_SERVING_ENDPOINT", "databricks-claude-sonnet-4-6")
 
 SAMPLE_MESSAGES = [
     {
@@ -118,7 +118,7 @@ def call_with_openai_sdk() -> str:
     the OpenAI Python client works with:
         - api_key   = your Databricks PAT
         - base_url  = https://<workspace>/serving-endpoints
-        - model     = endpoint name (e.g. "databricks-claude-sonnet-4-5")
+        - model     = endpoint name (e.g. "databricks-claude-sonnet-4-6")
 
     Swap your existing `OpenAI(api_key=..., base_url=...)` init for
     this one and the rest of your code stays identical.
@@ -155,7 +155,7 @@ def call_with_dspy() -> str:
 
         import dspy
         lm = dspy.LM(
-            "databricks/databricks-claude-sonnet-4-5",
+            "databricks/databricks-claude-sonnet-4-6",
             api_base=f"{HOST}/serving-endpoints",
             api_key=TOKEN,
             max_tokens=2000,
@@ -170,7 +170,7 @@ def call_with_dspy() -> str:
     import dspy
 
     lm = dspy.LM(
-        "databricks/databricks-claude-sonnet-4-5",
+        "databricks/databricks-claude-sonnet-4-6",
         api_base=f"{HOST}/serving-endpoints",
         api_key=TOKEN,
         max_tokens=512,

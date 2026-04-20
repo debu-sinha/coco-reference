@@ -13,7 +13,7 @@ You'll need these before you start:
 - A Databricks workspace with **Unity Catalog** and **Model Serving**
 - An **existing serverless SQL warehouse** (the setup job doesn't create one). Find the warehouse ID on the SQL Warehouses page (hex string in the URL). If you don't have one, ask your workspace admin to create a serverless warehouse.
 - An **existing Unity Catalog catalog** where you have CREATE SCHEMA permission. The setup job can't create catalogs on Default Storage workspaces. Run the preflight script (below) to find one you can use.
-- `databricks-claude-sonnet-4-5` (or equivalent) **FMAPI endpoint** available in your workspace
+- `databricks-claude-sonnet-4-6` (or equivalent) **FMAPI endpoint** available in your workspace
 - **Databricks CLI** installed and a profile configured (`databricks auth login`)
 - **Python 3.10+** locally
 - **MLflow Managed Prompt Registry** enabled (Preview feature). The agent loads prompt instructions from the registry, and the optimizer writes tuned prompts back. Enable it under **Settings > Preview features > "Managed MLflow Prompt Registry"**.
@@ -92,17 +92,17 @@ All resources are namespaced by `unique_id` so multiple users can deploy to the 
 
 | Resource | Name pattern | What it does |
 |----------|-------------|-------------|
-| UC Schema | `cohort_builder_<id>` | Tables, volumes, model |
-| Delta tables | `patients`, `diagnoses`, `prescriptions`, `procedures`, `claims`, `suppliers` | 10k synthetic patients with clinically realistic correlations |
-| Vector Search endpoint | `coco-vs-<id>` | Clinical knowledge RAG |
-| Vector Search index | `coco_knowledge_idx` | Hybrid BM25 + BGE embeddings on clinical docs |
-| Lakebase instance | `coco-lb-<id>` | Managed Postgres for chat sessions |
-| Lakebase database | `coco` | Threads, messages, runs, feedback tables |
-| MLflow Prompt Registry | `<catalog>.cohort_builder_<id>.{cohort_query,clinical_codes,sql_generator,response_synthesizer}` | UC-qualified 3-part names. Versioned prompt instructions for DSPy signatures |
-| Model Serving endpoint | `coco-agent-<id>` | The dspy.ReAct agent with native tool calling |
-| UC registered model | `<catalog>.cohort_builder_<id>.coco_agent_<id>` | Versioned agent model in Unity Catalog |
-| Databricks App | `coco-<id>` | FastAPI + HTMX chat UI (SP-only auth, no OBO) |
-| MLflow experiment | `/Users/<email>/coco-agent` | Per-user. Traces, runs, model artifacts. Falls back to `/Shared/coco-agent` if `COCO_MLFLOW_EXPERIMENT` is not set |
+| UC Schema | `cohort_builder_<id>` | Tables, volumes, registered model [(setup Step 2)](notebooks/00_setup_workspace.py) |
+| Delta tables | `patients`, `diagnoses`, `prescriptions`, `procedures`, `claims`, `suppliers` | 10k synthetic patients via [`src/coco/data_generator/`](src/coco/data_generator) with clinically realistic correlations |
+| Vector Search endpoint | `coco-vs-<id>` | Per-user. [Delta Sync index docs](https://docs.databricks.com/aws/en/generative-ai/vector-search.html) |
+| Vector Search index | `coco_knowledge_idx` | Hybrid BM25 + BGE embeddings on `knowledge_chunks` [(setup Step 5)](notebooks/00_setup_workspace.py) |
+| Lakebase instance | `coco-lb-<id>` | Managed Postgres for session state [(Lakebase docs)](https://docs.databricks.com/aws/en/generative-ai/databricks-apps/lakebase.html) |
+| Lakebase database | `coco` | Schema `coco_sessions` with `threads`, `messages`, `runs`, `feedback` tables [(schema)](src/coco/app/sessions/schema.py) |
+| MLflow Prompt Registry | `<catalog>.cohort_builder_<id>.{cohort_query,clinical_codes,sql_generator,response_synthesizer}` | 3-part UC names with `@production` alias [(loader)](src/coco/agent/prompts/__init__.py) |
+| Model Serving endpoint | `coco-agent-<id>` | `dspy.ReAct` agent via [Mosaic AI Agent Framework](https://docs.databricks.com/aws/en/generative-ai/agent-framework/) [(deploy)](src/coco/agent/deploy.py) |
+| UC registered model | `<catalog>.cohort_builder_<id>.coco_agent_<id>` | Versioned agent model [(deploy.py)](src/coco/agent/deploy.py) |
+| Databricks App | `coco-<id>` | FastAPI + HTMX chat UI, SP-only auth via `X-Forwarded-Email` [(auth.py)](src/coco/app/auth.py) |
+| MLflow experiment | `/Users/<email>/coco-agent` | Per-user. Traces, runs, model artifacts. **No fallback** — setup errors loudly if `COCO_MLFLOW_EXPERIMENT` is unset. This is [intentional](src/coco/agent/prompts/__init__.py) so traces can never silently land in a shared experiment. |
 
 ### Multi-user isolation
 
@@ -161,7 +161,7 @@ Lakebase -----> Thread/message persistence + feedback
   v
 Model Serving (dspy.ReAct agent)
   |
-  +---> Claude Sonnet 4.5 (FMAPI) -----> Plan + synthesize
+  +---> Claude Sonnet 4.6 (FMAPI) -----> Plan + synthesize
   +---> SQL Warehouse -----> Execute cohort queries
   +---> Vector Search -----> Clinical knowledge RAG
   +---> MLflow Prompt Registry -----> Dynamic prompt instructions

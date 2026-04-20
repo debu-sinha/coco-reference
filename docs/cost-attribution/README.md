@@ -63,7 +63,7 @@ docs/cost-attribution/
    individually rather than by blanket rate limiting.
 4. **`serving_endpoint_cost.sql`** - per-serving-endpoint spend.
    Relevant once your team moves DSPy LLM calls from an external
-   provider to `databricks-claude-sonnet-4-5` (see `docs/examples/
+   provider to `databricks-claude-sonnet-4-6` (see `docs/examples/
    databricks_hosted_claude_for_dspy.py`). Until then this returns
    empty for the DSPy workload.
 5. **`dbu_timeseries.sql`** - daily DBU spend per workload tag.

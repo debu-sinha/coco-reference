@@ -7,7 +7,7 @@ beyond standard pip packages.
 
 ## `databricks_hosted_claude_for_dspy.py`
 
-How to call `databricks-claude-sonnet-4-5` (or any Databricks Model
+How to call `databricks-claude-sonnet-4-6` (or any Databricks Model
 Serving endpoint) from outside Databricks, specifically from a DSPy
 module that currently uses enterprise OpenAI.
 
@@ -17,7 +17,7 @@ Three patterns in the same file:
    CAN_QUERY ACL are correct
 2. **OpenAI SDK** - one-line swap if your existing code already uses
    `openai.OpenAI`
-3. **DSPy** - `dspy.LM("databricks/databricks-claude-sonnet-4-5", ...)`
+3. **DSPy** - `dspy.LM("databricks/databricks-claude-sonnet-4-6", ...)`
    drop-in for DSPy 2.5+
 
 Run with:
@@ -26,7 +26,7 @@ Run with:
 export DATABRICKS_HOST="https://your-workspace.cloud.databricks.com"
 export DATABRICKS_TOKEN="dapi..."                  # your PAT
 # optional override
-export DATABRICKS_SERVING_ENDPOINT="databricks-claude-sonnet-4-5"
+export DATABRICKS_SERVING_ENDPOINT="databricks-claude-sonnet-4-6"
 
 python docs/examples/databricks_hosted_claude_for_dspy.py httpx
 python docs/examples/databricks_hosted_claude_for_dspy.py openai

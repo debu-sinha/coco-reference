@@ -182,7 +182,7 @@ validate_sql_query("SELECT * FROM users")
 **Configuration:**
 ```yaml
 llm:
-  endpoint: "databricks-claude-sonnet-4-5"
+  endpoint: "databricks-claude-sonnet-4-6"
   gateway_route: "coco-llm"
   temperature: 0.0  # Deterministic
   max_tokens: 4096

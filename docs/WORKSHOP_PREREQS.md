@@ -26,7 +26,7 @@ The workshop runs cohort queries through a serverless SQL warehouse via the Stat
 
 ## LLM endpoint
 
-- [ ] `databricks-claude-sonnet-4-5` Model Serving endpoint is **served** in the workspace. You can verify with `databricks serving-endpoints get databricks-claude-sonnet-4-5` - it should return `state.ready = READY`.
+- [ ] `databricks-claude-sonnet-4-6` Model Serving endpoint is **served** in the workspace. You can verify with `databricks serving-endpoints get databricks-claude-sonnet-4-6` - it should return `state.ready = READY`.
 - [ ] If your region ships Claude Sonnet 4.6 instead of 4.5, update `config/default.yaml` to point `llm.endpoint` and `llm.gateway_route` at the actual endpoint name available in your workspace.
 - [ ] Pre-invoke the endpoint **15 minutes before the workshop** with a warm-up prompt (`{"messages": [{"role": "user", "content": "hi"}], "max_tokens": 5}`). Serving endpoints cold-start is ~1-2 minutes.
 
@@ -44,7 +44,7 @@ Each of the 4 attendees needs:
 - [ ] Ability to **create Vector Search endpoints**.
 - [ ] Ability to **deploy Model Serving endpoints** (the agent registers to UC and calls `databricks.agents.deploy()`).
 - [ ] `CAN_USE` on the shared serverless warehouse.
-- [ ] `CAN_QUERY` on the `databricks-claude-sonnet-4-5` endpoint.
+- [ ] `CAN_QUERY` on the `databricks-claude-sonnet-4-6` endpoint.
 
 The simplest path is to put all 4 attendees into a `coco-workshop` workspace group and grant the group everything above in one shot. You can drop the group after the workshop.
 
