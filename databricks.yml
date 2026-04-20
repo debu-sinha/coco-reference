@@ -67,6 +67,11 @@ resources:
           environment_key: default
           timeout_seconds: 3600
       max_concurrent_runs: 1
+      tags:
+        workload: coco
+        env: ${var.environment}
+        unique_id: ${var.unique_id}
+        owner: ${workspace.current_user.userName}
 
     run_evaluation:
       name: CoCo Evaluation (${var.unique_id})
@@ -92,6 +97,11 @@ resources:
           environment_key: default
           timeout_seconds: 3600
       max_concurrent_runs: 1
+      tags:
+        workload: coco
+        env: ${var.environment}
+        unique_id: ${var.unique_id}
+        owner: ${workspace.current_user.userName}
 
     teardown_workspace:
       name: CoCo Teardown (${var.unique_id})
@@ -116,6 +126,11 @@ resources:
           environment_key: default
           timeout_seconds: 1800
       max_concurrent_runs: 1
+      tags:
+        workload: coco
+        env: ${var.environment}
+        unique_id: ${var.unique_id}
+        owner: ${workspace.current_user.userName}
 
     optimize_dspy:
       name: CoCo DSPy Optimization (${var.unique_id})
@@ -139,6 +154,11 @@ resources:
           environment_key: default
           timeout_seconds: 3600
       max_concurrent_runs: 1
+      tags:
+        workload: coco
+        env: ${var.environment}
+        unique_id: ${var.unique_id}
+        owner: ${workspace.current_user.userName}
 
   dashboards:
     coco_cost_attribution:

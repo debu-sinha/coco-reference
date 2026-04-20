@@ -309,6 +309,25 @@ def deploy_agent() -> None:
         "COCO_CONFIG_PATH": "config/default.yaml",
     }
     logger.info("Serving env vars: %s", _serving_env_vars)
+
+    # Propagate the same cost-attribution tags the bundle puts on jobs.
+    # Schema name doubles as the unique_id since the setup notebook
+    # namespaces the schema as `cohort_builder_<unique_id>`.
+    _user_email = ""
+    try:
+        from databricks.sdk import WorkspaceClient as _WS
+
+        _user_email = _WS().current_user.me().user_name or ""
+    except Exception:
+        pass
+    _unique_id = (config.catalog.schema or "").removeprefix("cohort_builder_") or "dev"
+    _serving_tags = {
+        "workload": "coco",
+        "env": os.environ.get("COCO_ENV", "demo"),
+        "unique_id": _unique_id,
+        "owner": _user_email,
+    }
+    logger.info("Serving endpoint tags: %s", _serving_tags)
     deployment = agents.deploy(
         model_name=uc_model_name,
         model_version=int(registered.version),
@@ -316,6 +335,7 @@ def deploy_agent() -> None:
         scale_to_zero=config.agent_endpoint.scale_to_zero,
         workload_size=config.agent_endpoint.workload_size,
         environment_vars=_serving_env_vars,
+        tags=_serving_tags,
     )
     logger.info("Deployment response: %s", deployment)
 
