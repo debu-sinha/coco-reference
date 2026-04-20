@@ -200,7 +200,7 @@ from pyspark.sql import SparkSession
 spark = SparkSession.builder.appName("CoCo Setup").getOrCreate()
 
 # -------------------- Per-user namespace --------------------
-# Multiple workshop attendees share one workspace, so every
+# Multiple users share one workspace, so every
 # per-attendee resource (schema, Lakebase instance, agent endpoint,
 # app, MLflow experiment) must be namespaced. We derive the namespace
 # from the workspace username so attendees don't have to pick one.
@@ -883,14 +883,14 @@ try:
     print("Smoke test passed.")
 except Exception as e:
     # Don't fail the notebook on smoke test — the agent endpoint itself
-    # is still deployed. Log and let the workshop attendee investigate.
+    # is still deployed. Log and let the deployer investigate.
     print(f"Smoke test failed (not fatal): {e.__class__.__name__}: {e}")
 
 # COMMAND ----------
 # MAGIC %md
 # MAGIC ## Step 9: Create and Deploy the Databricks App
 # MAGIC
-# MAGIC The FastAPI + HTMX front-end that workshop attendees click to use CoCo.
+# MAGIC The FastAPI + HTMX front-end that users click to use CoCo.
 # MAGIC The App was deliberately NOT included in the bundle-level resources
 # MAGIC because it binds to the coco-agent serving endpoint, which doesn't
 # MAGIC exist until Step 7 creates it. Now that the endpoint is live, we can
@@ -941,7 +941,7 @@ app_resources = [
     #
     # NOTE: the user running this notebook must have CAN_MANAGE on the
     # Lakebase instance (Step 6 created it under their identity, so this
-    # is automatic for workshop attendees).
+    # is automatic for deployers).
     AppResource(
         name="postgres",
         description="Lakebase Postgres for thread/message state",

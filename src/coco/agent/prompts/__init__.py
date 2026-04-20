@@ -86,7 +86,7 @@ def register_defaults() -> dict[str, str]:
     setup run complete "successfully" with ZERO prompts registered,
     which then masqueraded as a working deployment until the agent's
     first turn fell back to DEFAULTS and the optimize notebook errored
-    out. Hard-failing here forces the workshop attendee to flip the
+    out. Hard-failing here forces the deployer to flip the
     preview flag before moving on, which is what the preflight check
     also reports.
     """

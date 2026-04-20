@@ -27,7 +27,7 @@ Optional (the setup job creates these if you have permission):
 
 ### Step 0: Preflight check (MANDATORY — every deployer runs this)
 
-**Who runs it:** every person who will deploy CoCo — workshop attendees, platform team, facilitators. Run it against **your own** CLI profile so it probes **your** permissions. Admin-only preflights are not enough. The setup job runs as the deployer's identity, so the deployer is the only one whose permissions matter.
+**Who runs it:** every person who will deploy CoCo — you, your team, your platform admins. Run it against **your own** CLI profile so it probes **your** permissions. Admin-only preflights are not enough. The setup job runs as the deployer's identity, so the deployer is the only one whose permissions matter.
 
 **When to run it:** after you have the CLI profile configured (`databricks auth login`) and before any `databricks bundle` command. It takes about 60 seconds.
 
@@ -154,7 +154,7 @@ Things that work today but might bite you in specific conditions. Check [`CHANGE
 - **Lakebase credential rotation.** Tokens are minted on demand with a ~1h TTL and the pool rotates at 55 minutes. If Databricks changes the TTL, the pool will hit auth errors on the next query. We don't poll or log credential health. See [`src/coco/app/sessions/lakebase.py`](src/coco/app/sessions/lakebase.py).
 - **Prompt Registry flag can be disabled after deploy.** The preflight script catches it before setup, but nothing checks it at request time. If an admin flips the flag off post-deploy, `load_prompt` falls back to bundled DEFAULTS silently. See [`src/coco/agent/prompts/__init__.py`](src/coco/agent/prompts/__init__.py).
 - **Agent endpoint cold starts.** Scale-to-zero is on by default. First request after idle can take 30-60 seconds while the container warms. The app doesn't queue or show a dedicated "waking up" state — the user sees the standard "agent is thinking" spinner.
-- **LLM-as-judge scorers use `asyncio.run`.** `response_relevance_scorer` and `phi_leak_scorer` in [`src/coco/observability/scorers.py`](src/coco/observability/scorers.py) spin an event loop. They worked in fevm2 evaluation but treat them as lower-confidence than the code scorers.
+- **LLM-as-judge scorers use `asyncio.run`.** `response_relevance_scorer` and `phi_leak_scorer` in [`src/coco/observability/scorers.py`](src/coco/observability/scorers.py) spin an event loop. They worked in our validation environment but treat them as lower-confidence than the code scorers.
 - **Vector Search index takes a few minutes to go live** after `setup_workspace` creates it. The agent's `retrieve_knowledge` tool returns empty results until the index finishes syncing. Setup waits but does not gate on index-ready.
 
 ## Architecture

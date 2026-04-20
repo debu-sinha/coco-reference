@@ -154,7 +154,7 @@ of this notebook used a hand-rolled MIPROv2 loop. That's gone.
   an LLM judge through [`src/coco/gateway/client.py`](src/coco/gateway/client.py).
   The LLM-judge path is sensitive to the runtime's event-loop state
   (uses `asyncio.run`), which can fail in some evaluation contexts —
-  the code path ran successfully in fevm2 evaluation but treat it as
+  the code path ran successfully in our validation environment but treat it as
   lower-confidence than the code scorers.
 
 ### Config

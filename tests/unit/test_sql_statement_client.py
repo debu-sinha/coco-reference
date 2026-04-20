@@ -3,7 +3,7 @@
 StatementClient is async and talks to the Statement Execution REST API
 directly via httpx (not via the SDK's statement_execution helper). The
 tests here focus on construction, auth header resolution, and URL
-shaping — the parts a workshop attendee can validate without real
+shaping — the parts a reader can validate without real
 Databricks credentials. Full async HTTP flow testing is deferred to
 integration tests that run against a real warehouse.
 """

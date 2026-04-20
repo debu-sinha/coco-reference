@@ -63,7 +63,7 @@ _user_email = (_UserWs().current_user.me().user_name or "").strip()
 if not _user_email:
     raise RuntimeError(
         "Cannot resolve workspace username for per-user MLflow experiment. "
-        "Every workshop attendee must have a valid email-backed Databricks "
+        "Every deployer must have a valid email-backed Databricks "
         "identity. Refusing to fall back to /Shared/coco-agent."
     )
 os.environ["COCO_MLFLOW_EXPERIMENT"] = f"/Users/{_user_email}/coco-agent"

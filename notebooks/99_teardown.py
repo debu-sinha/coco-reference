@@ -76,7 +76,7 @@ if confirm != "YES":
 # COMMAND ----------
 # Per-user auto-namespacing — mirror the logic in 00_setup_workspace.py
 # so teardown rewrites the same generic defaults into per-user names.
-# Without this, a workshop attendee running teardown with the default
+# Without this, a user running teardown with the default
 # widgets would try to delete another attendee's resources (or no-op
 # because the names don't exist).
 import re
@@ -307,7 +307,7 @@ except Exception as e:
 # MAGIC %md
 # MAGIC ## 9. UC catalog (only if delete_catalog=YES)
 # MAGIC
-# MAGIC The catalog is usually shared across workshop attendees and
+# MAGIC The catalog is usually shared across deployers and
 # MAGIC admin-managed, so default behavior leaves it alone. Opt in
 # MAGIC explicitly when the catalog was created for your use only.
 
