@@ -15,7 +15,7 @@ Every diagram here has a `.excalidraw` (editable source) and a `.svg`
 | `mlflow-trace-structure.svg` | `mlflow-trace-structure.svg` | One agent invocation as a span tree: `react_agent` root, `dspy.ReAct.forward` child, five `@mlflow.trace` tool spans. |
 | `lakebase-schema.svg` | `lakebase-schema.svg` | The four Lakebase tables (`threads`, `messages`, `runs`, `feedback`) and their FK relationships. |
 
-All diagrams were built with the mandated dark-mode-safe color palette: `#228be6` for API/process boxes, `#3b5bdb` for internal functions, `#5c7cfa` for utility/storage, `#40c057` for output/artifact, `#12b886` for final results, `#868e96` for fallback, with `#f8f9fa` text on every dark fill. Roughness is 0 (clean lines), font is Helvetica, grid is 8px.
+Color coding, if you want to match it when adding a new diagram: blue `#228be6` for the browser/API layer, indigo `#3b5bdb` for the main agent, light blue `#5c7cfa` for storage and utility boxes, green `#40c057` or teal `#12b886` for outputs, gray `#868e96` for passive/dashed flows. Text is always `#f8f9fa` on these fills. Clean lines (roughness 0), Helvetica, 8px grid.
 
 ## How to open / edit
 

@@ -4,7 +4,7 @@
 
 A single reference for how agent responses are produced, observed, judged,
 and used to improve the next response. Covers four loops that share the
-same MLflow experiment as a substrate:
+same MLflow experiment:
 
 1. **Production loop** - user asks a question, agent answers.
 2. **Observability loop** - every run emits a trace, every rating is a
