@@ -52,21 +52,15 @@ Typical workflow for cohort queries today:
 
 "**CoCo: Natural Language -> Validated SQL -> Results**"
 
-```
-User: "Type 2 diabetes patients on metformin"
-                      |
-                      v
-         [AI Agent (Claude)]
-                      |
-                      v
-        SELECT * FROM diagnoses
-        JOIN prescriptions
-        WHERE code = 'E11.9'
-        AND drug = 'metformin'
-                      |
-                      v
-           42 patients found [x]
-```
+The happy path in one breath:
+
+1. User types: `Type 2 diabetes patients on metformin`
+2. `dspy.ReAct` picks `identify_clinical_codes` -> returns `E11.9`
+3. `dspy.ReAct` picks `generate_sql` -> returns a `SELECT ... FROM diagnoses JOIN prescriptions WHERE code='E11.9' AND drug='metformin'`
+4. `dspy.ReAct` picks `execute_sql` -> guardrails validate, the warehouse runs it, 42 rows return
+5. The agent's `finish` action renders the answer; the App streams it back to the browser
+
+See `docs/design/diagrams/request-flow.svg` for the full architecture.
 
 **Key features:**
 - No SQL needed

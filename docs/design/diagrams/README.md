@@ -10,10 +10,12 @@ Every diagram here has a `.excalidraw` (editable source) and a `.svg`
 
 | Source | Render | What it shows |
 |---|---|---|
-| `request-flow.excalidraw` | `request-flow.svg` | End-to-end request flow - browser to Databricks App to dspy.ReAct agent to the tool fanout (FMAPI / SQL warehouse / Vector Search / MLflow). |
-| `apps-mosaic-ai-reference.excalidraw` | `apps-mosaic-ai-reference.svg` | The Apps + Mosaic AI reference architecture - one request through the stack with Lakebase and MLflow on the sides. |
-| `eval-architecture.excalidraw` | `eval-architecture.svg` | Four loops on one MLflow experiment: production, observability, evaluation, optimization. |
-| `mlflow-trace-structure.excalidraw` | `mlflow-trace-structure.svg` | One agent invocation as a span tree: `react_agent` root, five tool spans, LM sub-spans from `mlflow.dspy.autolog()`. |
+| `request-flow.excalidraw` | `request-flow.svg` | End-to-end request flow: browser to Databricks App to dspy.ReAct agent, with Lakebase, MLflow, and the three tool surfaces (FMAPI / SQL warehouse / Vector Search). Also aliased as `apps-mosaic-ai-reference.svg` for the design doc. |
+| `eval-architecture.svg` | `eval-architecture.svg` | The four loops on one MLflow experiment: production, observability, evaluation, optimization. |
+| `mlflow-trace-structure.svg` | `mlflow-trace-structure.svg` | One agent invocation as a span tree: `react_agent` root, `dspy.ReAct.forward` child, five `@mlflow.trace` tool spans. |
+| `lakebase-schema.svg` | `lakebase-schema.svg` | The four Lakebase tables (`threads`, `messages`, `runs`, `feedback`) and their FK relationships. |
+
+All diagrams were built with the mandated dark-mode-safe color palette: `#228be6` for API/process boxes, `#3b5bdb` for internal functions, `#5c7cfa` for utility/storage, `#40c057` for output/artifact, `#12b886` for final results, `#868e96` for fallback, with `#f8f9fa` text on every dark fill. Roughness is 0 (clean lines), font is Helvetica, grid is 8px.
 
 ## How to open / edit
 

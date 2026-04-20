@@ -23,22 +23,10 @@ For the evaluation and optimization loops specifically (how traces, feedback, an
 - `src/coco/app/sessions/lakebase.py` - Lakebase client + connection pooling
 
 **Data model:**
-```
-Thread
-|-  thread_id (UUID)
-|-  user_id (from auth)
-|-  title
-|-  created_at
-\-  messages: Message[]
-   |-  message_id
-   |-  role (user|assistant)
-   |-  content
-   \-  runs: Run[]
-      |-  run_id
-      |-  state (PENDING|RUNNING|SUCCEEDED|FAILED)
-      |-  statement_id (SQL Statement Execution ID)
-      \-  trace_id (MLflow trace)
-```
+
+![Lakebase session schema](design/diagrams/lakebase-schema.svg)
+
+Every row in every table carries `user_id` and every query filters on it, so one user's threads and feedback are invisible to another. See [`src/coco/app/sessions/`](../src/coco/app/sessions/) for the CRUD implementations.
 
 ### 2. CocoAgent (`dspy.ReAct` with native tool calling)
 

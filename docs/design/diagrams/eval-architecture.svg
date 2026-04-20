@@ -1,38 +1,33 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="928" height="558" viewBox="36 -14 928 558">
-<defs><marker id="arrow-1e1e1e" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#1e1e1e" /></marker><style>text { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }</style></defs>
-<text x="260" y="32" font-size="22" fill="#1e1e1e">CoCo — Evaluation + Optimization</text>
-<text x="260" y="52" font-size="14" fill="#1e1e1e">four loops on one MLflow experiment</text>
-<rect x="60" y="90" width="220" height="60" rx="8" stroke="#1e1e1e" fill="#ffd8a8" stroke-width="1" />
-<text x="68" y="122" font-size="16" fill="#1e1e1e">User asks a question</text>
-<rect x="60" y="190" width="220" height="80" rx="8" stroke="#1e1e1e" fill="#b2f2bb" stroke-width="1" />
-<text x="68" y="232" font-size="16" fill="#1e1e1e">Agent answers</text>
-<text x="68" y="252" font-size="16" fill="#1e1e1e">(prompt @production)</text>
-<path d="M 170 150 L 170 188" stroke="#1e1e1e" fill="none" stroke-width="1" marker-end="url(#arrow-1e1e1e)" />
-<rect x="360" y="90" width="240" height="80" rx="8" stroke="#1e1e1e" fill="#a5d8ff" stroke-width="1" />
-<text x="368" y="132" font-size="16" fill="#1e1e1e">MLflow trace</text>
-<text x="368" y="152" font-size="16" fill="#1e1e1e">(every tool call, every LM)</text>
-<rect x="360" y="210" width="240" height="60" rx="8" stroke="#1e1e1e" fill="#a5d8ff" stroke-width="1" />
-<text x="368" y="242" font-size="16" fill="#1e1e1e">Thumbs-up in Lakebase</text>
-<path d="M 280 230 L 358 230" stroke="#1e1e1e" fill="none" stroke-width="1" marker-end="url(#arrow-1e1e1e)" />
-<path d="M 280 220 L 358 130" stroke="#1e1e1e" fill="none" stroke-width="1" marker-end="url(#arrow-1e1e1e)" />
-<rect x="60" y="350" width="220" height="60" rx="8" stroke="#1e1e1e" fill="#d0bfff" stroke-width="1" />
-<text x="68" y="382" font-size="16" fill="#1e1e1e">scenarios.yaml</text>
-<text x="68" y="402" font-size="16" fill="#1e1e1e">golden set</text>
-<rect x="60" y="440" width="220" height="80" rx="8" stroke="#1e1e1e" fill="#b2f2bb" stroke-width="1" />
-<text x="68" y="482" font-size="16" fill="#1e1e1e">mlflow.genai.evaluate</text>
-<text x="68" y="502" font-size="16" fill="#1e1e1e">4 scorers</text>
-<path d="M 170 410 L 170 438" stroke="#1e1e1e" fill="none" stroke-width="1" marker-end="url(#arrow-1e1e1e)" />
-<rect x="360" y="350" width="240" height="60" rx="8" stroke="#1e1e1e" fill="#ffc9c9" stroke-width="1" />
-<text x="368" y="382" font-size="16" fill="#1e1e1e">Pull last 7d of +1 feedback</text>
-<rect x="360" y="440" width="240" height="80" rx="8" stroke="#1e1e1e" fill="#ffc9c9" stroke-width="1" />
-<text x="368" y="482" font-size="16" fill="#1e1e1e">mlflow.genai.optimize_prompts</text>
-<text x="368" y="502" font-size="16" fill="#1e1e1e">GepaPromptOptimizer</text>
-<path d="M 480 270 L 480 348" stroke="#1e1e1e" fill="none" stroke-width="1" marker-end="url(#arrow-1e1e1e)" />
-<path d="M 480 410 L 480 438" stroke="#1e1e1e" fill="none" stroke-width="1" marker-end="url(#arrow-1e1e1e)" />
-<rect x="680" y="260" width="260" height="80" rx="8" stroke="#1e1e1e" fill="#e599f7" stroke-width="1" />
-<text x="688" y="302" font-size="16" fill="#1e1e1e">MLflow Prompt Registry</text>
-<text x="688" y="322" font-size="16" fill="#1e1e1e">@production alias</text>
-<path d="M 940 300 L 280 220" stroke="#1e1e1e" fill="none" stroke-width="1" stroke-dasharray="8,4" marker-end="url(#arrow-1e1e1e)" />
-<path d="M 600 480 L 810 340" stroke="#1e1e1e" fill="none" stroke-width="1" marker-end="url(#arrow-1e1e1e)" />
-<path d="M 810 340 L 810 260" stroke="#1e1e1e" fill="none" stroke-width="1" marker-end="url(#arrow-1e1e1e)" />
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="516" viewBox="60 -4 1080 516">
+<defs><marker id="arrow-212529" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#212529" /></marker><style>text { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }</style></defs>
+<text x="288" y="40" font-size="24" fill="#212529">CoCo evaluation + optimization (4 loops)</text>
+<text x="340" y="59" font-size="11" fill="#868e96">all four share one MLflow experiment as substrate</text>
+<rect x="80" y="88" width="480" height="172" rx="8" stroke="#f8f9fa" fill="#228be6" stroke-width="1" />
+<text x="96" y="120" font-size="16" fill="#f8f9fa">1. Production loop</text>
+<text x="104" y="153" font-size="13" fill="#f8f9fa">- User asks a question in the App</text>
+<text x="104" y="177" font-size="13" fill="#f8f9fa">- dspy.ReAct answers with 5 tools</text>
+<text x="104" y="201" font-size="13" fill="#f8f9fa">- mlflow.dspy.autolog emits a trace</text>
+<text x="104" y="225" font-size="13" fill="#f8f9fa">- Response streams to browser via SSE</text>
+<rect x="640" y="88" width="480" height="172" rx="8" stroke="#f8f9fa" fill="#5c7cfa" stroke-width="1" />
+<text x="656" y="120" font-size="16" fill="#f8f9fa">2. Observability loop</text>
+<text x="664" y="153" font-size="13" fill="#f8f9fa">- Every request produces an MLflow trace</text>
+<text x="664" y="177" font-size="13" fill="#f8f9fa">- Thumbs up/down persisted in Lakebase</text>
+<text x="664" y="201" font-size="13" fill="#f8f9fa">- Inference tables capture req/resp</text>
+<text x="664" y="225" font-size="13" fill="#f8f9fa">- User tagging: user_id on every span</text>
+<rect x="640" y="320" width="480" height="172" rx="8" stroke="#f8f9fa" fill="#40c057" stroke-width="1" />
+<text x="656" y="352" font-size="16" fill="#f8f9fa">3. Evaluation loop (notebook 02, weekly)</text>
+<text x="664" y="385" font-size="13" fill="#f8f9fa">- scenarios.yaml is the golden set</text>
+<text x="664" y="409" font-size="13" fill="#f8f9fa">- mlflow.genai.evaluate runs the scorers</text>
+<text x="664" y="433" font-size="13" fill="#f8f9fa">- 4 code scorers: sql, codes, relevance, phi</text>
+<text x="664" y="457" font-size="13" fill="#f8f9fa">- Per-scenario pass/fail + aggregate</text>
+<rect x="80" y="320" width="480" height="172" rx="8" stroke="#f8f9fa" fill="#12b886" stroke-width="1" />
+<text x="96" y="352" font-size="16" fill="#f8f9fa">4. Optimization loop (notebook 03, weekly)</text>
+<text x="104" y="385" font-size="13" fill="#f8f9fa">- Pull +1 feedback from last 7 days</text>
+<text x="104" y="409" font-size="13" fill="#f8f9fa">- mlflow.genai.optimize_prompts (GEPA)</text>
+<text x="104" y="433" font-size="13" fill="#f8f9fa">- If beats production by &gt;2%: new version</text>
+<text x="104" y="457" font-size="13" fill="#f8f9fa">- Move @production alias -&gt; live rollout</text>
+<path d="M 560 174 L 640 174" stroke="#212529" fill="none" stroke-width="1" marker-end="url(#arrow-212529)" />
+<path d="M 880 260 L 880 320" stroke="#212529" fill="none" stroke-width="1" marker-end="url(#arrow-212529)" />
+<path d="M 640 406 L 560 406" stroke="#212529" fill="none" stroke-width="1" marker-end="url(#arrow-212529)" />
+<path d="M 320 320 L 320 260" stroke="#212529" fill="none" stroke-width="1" marker-end="url(#arrow-212529)" />
 </svg>

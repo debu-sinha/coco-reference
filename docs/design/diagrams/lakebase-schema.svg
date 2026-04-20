@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="320" viewBox="60 -4 1240 320">
+<defs><marker id="arrow-212529" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#212529" /></marker><style>text { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }</style></defs>
+<text x="408" y="40" font-size="24" fill="#212529">CoCo Lakebase session schema</text>
+<text x="376" y="59" font-size="11" fill="#868e96">four tables in the sessions schema, one row per thread / message / run / rating</text>
+<rect x="80" y="88" width="240" height="160" rx="8" stroke="#f8f9fa" fill="#228be6" stroke-width="1" />
+<text x="96" y="120" font-size="16" fill="#f8f9fa">threads</text>
+<text x="104" y="153" font-size="13" fill="#f8f9fa">thread_id  (UUID, PK)</text>
+<text x="104" y="177" font-size="13" fill="#f8f9fa">user_id    (from auth)</text>
+<text x="104" y="201" font-size="13" fill="#f8f9fa">title</text>
+<text x="104" y="225" font-size="13" fill="#f8f9fa">created_at</text>
+<rect x="400" y="88" width="240" height="184" rx="8" stroke="#f8f9fa" fill="#3b5bdb" stroke-width="1" />
+<text x="416" y="120" font-size="16" fill="#f8f9fa">messages</text>
+<text x="424" y="153" font-size="13" fill="#f8f9fa">message_id  (UUID, PK)</text>
+<text x="424" y="177" font-size="13" fill="#f8f9fa">thread_id   (FK)</text>
+<text x="424" y="201" font-size="13" fill="#f8f9fa">role        (user | assistant)</text>
+<text x="424" y="225" font-size="13" fill="#f8f9fa">content</text>
+<text x="424" y="249" font-size="13" fill="#f8f9fa">created_at</text>
+<rect x="720" y="88" width="240" height="208" rx="8" stroke="#f8f9fa" fill="#5c7cfa" stroke-width="1" />
+<text x="736" y="120" font-size="16" fill="#f8f9fa">runs</text>
+<text x="744" y="153" font-size="13" fill="#f8f9fa">run_id      (UUID, PK)</text>
+<text x="744" y="177" font-size="13" fill="#f8f9fa">message_id  (FK)</text>
+<text x="744" y="201" font-size="13" fill="#f8f9fa">state       (PENDING...)</text>
+<text x="744" y="225" font-size="13" fill="#f8f9fa">statement_id</text>
+<text x="744" y="249" font-size="13" fill="#f8f9fa">trace_id</text>
+<text x="744" y="273" font-size="13" fill="#f8f9fa">created_at</text>
+<rect x="1040" y="88" width="240" height="184" rx="8" stroke="#f8f9fa" fill="#40c057" stroke-width="1" />
+<text x="1056" y="120" font-size="16" fill="#f8f9fa">feedback</text>
+<text x="1064" y="153" font-size="13" fill="#f8f9fa">message_id  (FK, part PK)</text>
+<text x="1064" y="177" font-size="13" fill="#f8f9fa">user_id     (part PK)</text>
+<text x="1064" y="201" font-size="13" fill="#f8f9fa">rating      (+1 | -1)</text>
+<text x="1064" y="225" font-size="13" fill="#f8f9fa">comment</text>
+<text x="1064" y="249" font-size="13" fill="#f8f9fa">created_at</text>
+<path d="M 320 168 L 400 168" stroke="#212529" fill="none" stroke-width="1" marker-end="url(#arrow-212529)" />
+<path d="M 640 180 L 720 180" stroke="#212529" fill="none" stroke-width="1" marker-end="url(#arrow-212529)" />
+<path d="M 640 212 L 1040 212" stroke="#212529" fill="none" stroke-width="1" marker-end="url(#arrow-212529)" />
+<text x="328" y="159" font-size="11" fill="#868e96">1:N</text>
+<text x="648" y="171" font-size="11" fill="#868e96">1:N</text>
+<text x="800" y="203" font-size="11" fill="#868e96">1:N (feedback per user per message)</text>
+</svg>
