@@ -1,17 +1,46 @@
 # Cost attribution dashboard
 
-A Lakeview dashboard built from the six validated queries in [`queries/`](queries). Every query has been run against a real `system.billing` + `system.query.history` workspace and returns the schema documented below. If a query fails on your workspace, check that [system tables are enabled](https://docs.databricks.com/aws/en/admin/system-tables/enable-system-tables.html) for your account.
+A Lakeview dashboard built from the seven validated queries in [`queries/`](queries). Every query has been run against a real `system.billing` + `system.query.history` workspace and returns the schema documented below. If a query fails on your workspace, check that [system tables are enabled](https://docs.databricks.com/aws/en/admin/system-tables/enable-system-tables.html) for your account.
 
-## Build it in the Databricks UI
+Two ways to stand the dashboard up:
 
-The fastest path that doesn't require shipping a brittle hand-crafted JSON: create the dashboard through the Lakeview UI using the six queries as datasets.
+1. **DABs deploy (recommended)** - `databricks bundle deploy` wires it up as part of the bundle, along with the jobs and the app.
+2. **Lakeview UI recipe** - paste the queries into a new dashboard by hand.
+
+## Option 1: Deploy via Databricks Asset Bundles
+
+The bundle already declares a `coco_cost_attribution` dashboard resource ([databricks.yml](../../databricks.yml)):
+
+```yaml
+resources:
+  dashboards:
+    coco_cost_attribution:
+      display_name: CoCo Cost Attribution (${var.unique_id})
+      file_path: ./docs/cost-attribution/coco_cost_attribution.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      parent_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}/dashboards
+```
+
+Deploy:
+
+```bash
+databricks bundle deploy -t demo -p feai
+```
+
+The dashboard lands under `/Workspace/Users/<you>/.bundle/coco-agent/demo/dashboards/` with all seven datasets pre-wired. Open it and drag each dataset onto the canvas to build widgets. See the [DABs dashboard resource docs](https://docs.databricks.com/aws/en/dev-tools/bundles/resources#dashboard) for the gotchas: UI changes need a manual export back to `.lvdash.json` or `--force` on the next deploy will overwrite them.
+
+The shipped `coco_cost_attribution.lvdash.json` includes only the datasets and an intro text widget - widget layout is left for you to build in the UI. The reason: the full Lakeview widget schema is workspace-dependent enough that a hand-crafted JSON breaks on import in subtle ways. Ship datasets, let the UI handle layout, export once the layout is good.
+
+## Option 2: Build in the Databricks UI
+
+If you don't want DABs in the loop, build the dashboard directly:
 
 1. Open **SQL -> Dashboards -> Create dashboard** ([Lakeview tutorial](https://docs.databricks.com/aws/en/dashboards/tutorials/create-dashboard.html)).
-2. On the **Data** tab, add six datasets by pasting the SQL from each file in `docs/cost-attribution/queries/`. Name each dataset after its file.
+2. On the **Data** tab, add seven datasets by pasting the SQL from each file in `docs/cost-attribution/queries/`. Name each dataset after its file.
 3. On the **Canvas** tab, add widgets (see the recipe below).
 4. Publish and share with your FinOps team.
 
-## Recipe - six widgets that map to one question each
+## Recipe - seven widgets, seven FinOps questions
 
 | Widget | Question it answers | Dataset | Widget type | Axes |
 |---|---|---|---|---|
@@ -21,6 +50,9 @@ The fastest path that doesn't require shipping a brittle hand-crafted JSON: crea
 | Per-endpoint cost | "Which serving endpoint costs most?" | `serving_endpoint_cost.sql` | **Bar** | x = `endpoint`, y = `approx_usd` |
 | Warehouse utilization | "Are my warehouses paid-but-idle?" | `warehouse_utilization.sql` | **Scatter** or **Table** | x = `warehouse_id`, y = `utilization_ratio` (flag <0.3) |
 | Top expensive queries | "Which single queries dominate the bill?" | `top_cost_queries.sql` | **Table** | sorted by `cost_score` desc, preview = `statement_preview` |
+| Cost per user | "Who on my team is driving the cost?" | `cost_per_user.sql` | **Bar** + **Table** | x = `user_id`, y = `approx_usd_14d` |
+
+The `cost_per_user` widget is new and depends on the agent's per-request tagging. The SQL statement client prepends `/* coco_user_id=<id>, coco_thread_id=<id> */` to every query ([`src/coco/sql/statement_client.py`](../../src/coco/sql/statement_client.py)); the dashboard query regex-extracts the id from `system.query.history.statement_text`. Only tagged queries are counted - ad-hoc SQL run by a human in the SQL editor will not show up per-user, only under the warehouse total.
 
 ## Widget parameters to expose
 
@@ -28,7 +60,7 @@ The fastest path that doesn't require shipping a brittle hand-crafted JSON: crea
 - `workload_filter` (default: all) - bind to `workload` column on the relevant datasets
 - `env_filter` (default: all) - bind to `env` column on time-series and spike widgets
 
-Lakeview dashboard parameters propagate to every bound dataset, so changing the date window in the header updates all six widgets. See the [parameters docs](https://docs.databricks.com/aws/en/dashboards/dashboard-parameters.html).
+Lakeview dashboard parameters propagate to every bound dataset, so changing the date window in the header updates all seven widgets. See the [parameters docs](https://docs.databricks.com/aws/en/dashboards/dashboard-parameters.html).
 
 ## Query compatibility
 
@@ -36,17 +68,13 @@ Every query reads only from [`system.billing.*`](https://docs.databricks.com/aws
 
 The queries use standard ANSI SQL plus Databricks-specific column paths (e.g. `compute.warehouse_id` on `system.query.history`). They were validated against the schemas published at the doc URLs above on 2026-04-19.
 
-## Why not ship a Lakeview JSON file
-
-Lakeview dashboards serialize to a workspace-specific JSON format that includes dataset IDs Databricks generates on import. A JSON file exported from one workspace does not round-trip cleanly to another workspace without hand-editing the dataset IDs.
-
-The recipe above is more portable. Build the dashboard once in the workspace you care about and the queries keep working as long as the system tables are enabled. For teams that want a one-click import, take the finished dashboard, **File -> Export -> JSON**, store it under `docs/cost-attribution/dashboard.lakeview.json`, and import per [these docs](https://docs.databricks.com/aws/en/dashboards/clone-dashboard.html).
-
 ## Trusting the numbers
 
-Every widget above shows USD values computed as `usage_quantity * list_prices.pricing.default` from the official system tables. This is list price, not your negotiated price. If you have a commitment discount, apply it in the widget formula or the derived dataset. Do not eyeball.
+Every widget shows USD values computed as `usage_quantity * list_prices.pricing.default` from the official system tables. This is list price, not your negotiated price. If you have a commitment discount, apply it in the widget formula or the derived dataset.
 
 Treat `system.billing` as the source of truth for spend, and [`system.query.history.total_task_duration_ms`](https://docs.databricks.com/aws/en/admin/system-tables/query-history.html) as the source of truth for per-query work. The top-queries widget's `cost_score` is a relative ranking, not an absolute dollar figure - use it to find the expensive queries, then pull their stats directly if you need to quote actual cost.
+
+The cost-per-user widget uses task-duration-proportion allocation: a user's share of a warehouse's 14-day USD spend equals `user_task_seconds / all_users_task_seconds * warehouse_usd`. This is an approximation because warehouse DBUs bill on active cluster time (including idle), not per-query task time. For workloads with many concurrent users it is close. For a sparse workload treat it as relative spend share rather than absolute dollars.
 
 ## Refresh frequency
 
@@ -56,4 +84,4 @@ System tables refresh on the schedule documented at the [system tables docs page
 - `system.billing.list_prices` - updated when pricing changes (rare)
 - `system.query.history` - updated every few minutes
 
-Your dashboard can set auto-refresh to 15-minute increments; tighter refresh does not surface fresher data.
+Your dashboard can set auto-refresh to 15-minute increments. Tighter refresh does not surface fresher data.

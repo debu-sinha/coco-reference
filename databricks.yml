@@ -140,6 +140,13 @@ resources:
           timeout_seconds: 3600
       max_concurrent_runs: 1
 
+  dashboards:
+    coco_cost_attribution:
+      display_name: CoCo Cost Attribution (${var.unique_id})
+      file_path: ./docs/cost-attribution/coco_cost_attribution.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      parent_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}/dashboards
+
 targets:
   demo:
     default: true
