@@ -143,6 +143,7 @@ Shared resources stay intact by default. The teardown never drops the UC catalog
 | `AiGatewayConfig` import error | Old system databricks-sdk | Already handled. The sys.path fix prioritizes pip-installed packages. |
 | `Bad model name: please specify all three levels` | Config env vars not set | Already handled. Notebook sets `COCO_*` env vars from widget values before deploy. |
 | Agent returns empty results | Config missing warehouse_id | The deploy resolves config at log_model time. Re-deploy the agent. |
+| `error downloading Terraform: openpgp: key expired` on `databricks bundle deploy` | Older Databricks CLI ships with an expired GPG-signing key for its embedded Terraform download | Install Terraform locally (`curl -sSL https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_$(uname -s | tr A-Z a-z)_$(uname -m).zip -o /tmp/tf.zip && unzip /tmp/tf.zip -d ~/bin/ && chmod +x ~/bin/terraform`). Then `export DATABRICKS_TF_EXEC_PATH=~/bin/terraform DATABRICKS_TF_VERSION=1.9.8` before running bundle commands. |
 
 For the full permissions checklist, see [`docs/PERMISSIONS.md`](docs/PERMISSIONS.md).
 
