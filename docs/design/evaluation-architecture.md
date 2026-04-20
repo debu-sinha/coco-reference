@@ -1,5 +1,7 @@
 # CoCo evaluation and optimization architecture
 
+**Author:** [debu-sinha](https://github.com/debu-sinha) (debusinha2009@gmail.com)
+
 A single reference for how agent responses are produced, observed, judged,
 and used to improve the next response. Covers four loops that share the
 same MLflow experiment as a substrate:
@@ -18,7 +20,7 @@ same MLflow experiment as a substrate:
 ![Evaluation + optimization architecture](diagrams/eval-architecture.svg)
 
 The diagram shows the four loops that share the MLflow experiment:
-production → observability → evaluation → optimization. Source:
+production -> observability -> evaluation -> optimization. Source:
 `diagrams/eval-architecture.excalidraw`. Open in
 [excalidraw.com](https://excalidraw.com) to edit and re-export the SVG.
 

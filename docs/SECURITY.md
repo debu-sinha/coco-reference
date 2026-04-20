@@ -7,7 +7,7 @@ deploying it against real data. If something here doesn't match your
 threat model, don't deploy.
 
 If you find a vulnerability in this repo, open an issue or reach out
-privately to the maintainer — don't disclose publicly until a fix
+privately to the maintainer - don't disclose publicly until a fix
 is in place.
 
 ## Identity and authentication
@@ -20,7 +20,7 @@ is in place.
 - Data access is performed by the app's **service principal (SP)**,
   not the end user. The SP has scoped UC grants via typed resource
   bindings (warehouse `CAN_USE`, endpoint `CAN_QUERY`, Lakebase
-  `CAN_CONNECT_AND_CREATE`). This is deliberate — on-behalf-of
+  `CAN_CONNECT_AND_CREATE`). This is deliberate - on-behalf-of
   (OBO) user token passthrough is *not* used.
 
 ### What this means in practice
@@ -33,7 +33,7 @@ is in place.
   if both can access the app. **If your threat model needs
   row-level access differentiation between app users, you'll need
   an additional authorization layer** (UC row filters, a per-user
-  session-scoped SQL warehouse, or OBO with `user_api_scopes`) —
+  session-scoped SQL warehouse, or OBO with `user_api_scopes`) -
   CoCo doesn't provide it out of the box.
 - The `UserIdentity.access_token` field on every request is a
   placeholder string (`apps-sp`) in SP-only mode. It is **not**
@@ -65,7 +65,7 @@ Every SQL statement the agent generates flows through
 
 - The guardrails are **defense in depth**, not the only line of
   defense. The primary protection is that the SP has `SELECT`-only
-  grants on the allowed tables — even a bypass of `guardrails.py`
+  grants on the allowed tables - even a bypass of `guardrails.py`
   cannot write or read outside those tables.
 - The regex-based comment stripper may not cover every adversarial
   nesting pattern. Running untrusted user text through this pipeline
@@ -77,7 +77,7 @@ Every SQL statement the agent generates flows through
   as valid SQL. The allowlist check looks for table references
   lexically; complex SQL that references an allowed table only via
   a CTE that wraps an underlying `information_schema` query will
-  pass the check. Mitigation is the SP's UC grant — always grant
+  pass the check. Mitigation is the SP's UC grant - always grant
   the SP only the specific tables it needs to see.
 
 ## PHI / PII handling
@@ -87,7 +87,7 @@ Every SQL statement the agent generates flows through
 - **Prompt text** (user messages) lands in:
   - MLflow traces (experiment: `/Users/<email>/coco-agent`)
   - Lakebase `coco_sessions.messages` table
-  - Serving endpoint inference tables (if enabled — off by default)
+  - Serving endpoint inference tables (if enabled - off by default)
 - **SQL results** flow back to the user through the app and are
   rendered in the chat UI. They are also embedded in the agent's
   response text and stored in Lakebase + MLflow.
@@ -116,7 +116,7 @@ PHI-bearing tables:
 2. UC column-level masking applied to any column the agent should
    not see in plain text (SSN, full DOB, free-text notes).
 3. A runtime content filter on agent responses (Mosaic AI Gateway
-   has one — turn it on).
+   has one - turn it on).
 4. An MLflow trace retention policy matched to your PHI retention
    rules. Trace data is not automatically expired.
 5. Review the Foundation Model API provider's BAA coverage for
@@ -141,7 +141,7 @@ PHI-bearing tables:
   the app's SP; non-SP users should not hit the endpoint directly.
 - The endpoint's `environment_vars` include
   `COCO_CATALOG_NAME` / `COCO_SCHEMA_NAME` / `COCO_WAREHOUSE_ID`.
-  These are not secrets but they do reveal workspace topology —
+  These are not secrets but they do reveal workspace topology -
   treat endpoint config as internal.
 
 ## MLflow Prompt Registry

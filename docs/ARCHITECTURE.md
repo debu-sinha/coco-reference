@@ -11,58 +11,58 @@ For the evaluation and optimization loops specifically (how traces, feedback, an
 **Purpose:** User-facing chat interface for cohort queries.
 
 **Key modules:**
-- `src/coco/app/main.py` — FastAPI app with SSE streaming
-- `src/coco/app/routes/api.py` — POST /api/threads/*, /api/messages/*, /api/feedback
-- `src/coco/app/routes/sse.py` — Server-sent events for real-time responses
-- `src/coco/app/auth.py` — User authentication (X-User-ID header, SSO)
+- `src/coco/app/main.py` - FastAPI app with SSE streaming
+- `src/coco/app/routes/api.py` - POST /api/threads/*, /api/messages/*, /api/feedback
+- `src/coco/app/routes/sse.py` - Server-sent events for real-time responses
+- `src/coco/app/auth.py` - User authentication (X-User-ID header, SSO)
 
 **Session persistence:**
-- `src/coco/app/sessions/threads.py` — Thread CRUD
-- `src/coco/app/sessions/messages.py` — Message CRUD
-- `src/coco/app/sessions/runs.py` — Run state tracking
-- `src/coco/app/sessions/lakebase.py` — Lakebase client + connection pooling
+- `src/coco/app/sessions/threads.py` - Thread CRUD
+- `src/coco/app/sessions/messages.py` - Message CRUD
+- `src/coco/app/sessions/runs.py` - Run state tracking
+- `src/coco/app/sessions/lakebase.py` - Lakebase client + connection pooling
 
 **Data model:**
 ```
 Thread
-├─ thread_id (UUID)
-├─ user_id (from auth)
-├─ title
-├─ created_at
-└─ messages: Message[]
-   ├─ message_id
-   ├─ role (user|assistant)
-   ├─ content
-   └─ runs: Run[]
-      ├─ run_id
-      ├─ state (PENDING|RUNNING|SUCCEEDED|FAILED)
-      ├─ statement_id (SQL Statement Execution ID)
-      └─ trace_id (MLflow trace)
+|-  thread_id (UUID)
+|-  user_id (from auth)
+|-  title
+|-  created_at
+\-  messages: Message[]
+   |-  message_id
+   |-  role (user|assistant)
+   |-  content
+   \-  runs: Run[]
+      |-  run_id
+      |-  state (PENDING|RUNNING|SUCCEEDED|FAILED)
+      |-  statement_id (SQL Statement Execution ID)
+      \-  trace_id (MLflow trace)
 ```
 
 ### 2. CocoAgent (`dspy.ReAct` with native tool calling)
 
-**Purpose:** The AI agent that answers cohort questions. Uses `dspy.ReAct` with native function calling — no separate planner prompt, no keyword matching, no terminal synthesize step.
+**Purpose:** The AI agent that answers cohort questions. Uses `dspy.ReAct` with native function calling - no separate planner prompt, no keyword matching, no terminal synthesize step.
 
 **Location:** `src/coco/agent/responses_agent.py`
 
 **How it works:**
 1. `CocoAgent.__init__` configures a DSPy `LM` pointing at the FMAPI serving endpoint (`databricks-claude-sonnet-4-6`) and builds a `dspy.ReAct` module with the top-level `CohortQuerySignature` and 5 tool functions.
 2. Each call to `predict_stream(messages)` refreshes the FMAPI Bearer token, opens a `react_agent` MLflow span, and calls `self.react(question=user_msg)`. `mlflow.dspy.autolog()` attaches an LM sub-span per ReAct iteration.
-3. `dspy.ReAct` loops for up to `MAX_ITERS=7` iterations. Each iteration is one LLM call that either invokes one of the 5 tools or emits the final answer via the built-in `finish` action. The model IS the planner — no keyword matching.
+3. `dspy.ReAct` loops for up to `MAX_ITERS=7` iterations. Each iteration is one LLM call that either invokes one of the 5 tools or emits the final answer via the built-in `finish` action. The model IS the planner - no keyword matching.
 4. The agent returns the final answer plus the full trajectory (step-by-step thoughts + observations), which the App renders as a collapsible `<details>` block under the assistant message.
 
 **Tools (all decorated with `@mlflow.trace`):**
-- `inspect_schema` — Lists tables/columns in the configured UC schema. Cached for the lifetime of the serving container.
-- `identify_clinical_codes` — DSPy `ChainOfThought` over `ClinicalCodeSignature`; returns ICD-10 / NDC / CPT codes.
-- `generate_sql` — DSPy `ChainOfThought` over `SQLGeneratorSignature`; returns Databricks SQL. Runs through the guardrails before returning.
-- `execute_sql` — Calls the Statement Execution API through the configured warehouse. Read-only + schema-allowlist enforced by `guardrails.validate_sql_query`.
-- `retrieve_knowledge` — Hybrid RAG over the `coco_knowledge_idx` Vector Search index (BM25 + BGE embedding).
+- `inspect_schema` - Lists tables/columns in the configured UC schema. Cached for the lifetime of the serving container.
+- `identify_clinical_codes` - DSPy `ChainOfThought` over `ClinicalCodeSignature`; returns ICD-10 / NDC / CPT codes.
+- `generate_sql` - DSPy `ChainOfThought` over `SQLGeneratorSignature`; returns Databricks SQL. Runs through the guardrails before returning.
+- `execute_sql` - Calls the Statement Execution API through the configured warehouse. Read-only + schema-allowlist enforced by `guardrails.validate_sql_query`.
+- `retrieve_knowledge` - Hybrid RAG over the `coco_knowledge_idx` Vector Search index (BM25 + BGE embedding).
 
 **DSPy Signatures** (in `src/coco/agent/signatures.py`):
-- `CohortQuerySignature` — top-level signature handed to `dspy.ReAct` (question → answer).
-- `ClinicalCodeSignature` — used by `identify_clinical_codes`.
-- `SQLGeneratorSignature` — used by `generate_sql`.
+- `CohortQuerySignature` - top-level signature handed to `dspy.ReAct` (question -> answer).
+- `ClinicalCodeSignature` - used by `identify_clinical_codes`.
+- `SQLGeneratorSignature` - used by `generate_sql`.
 
 Every signature is loaded with instructions from the MLflow Prompt Registry via `load_prompt(name).with_instructions(...)`; see `src/coco/agent/prompts/`.
 
@@ -134,7 +134,7 @@ SQLExecutorResult(
 
 **Implementation:**
 - Uses Databricks SQL Statement Execution API
-- Async polling with backoff (PENDING → RUNNING → SUCCEEDED)
+- Async polling with backoff (PENDING -> RUNNING -> SUCCEEDED)
 - Large results (>25 MB) returned as presigned URLs
 - Arrow format for efficient serialization
 
@@ -165,9 +165,9 @@ SQLExecutorResult(
 **File:** `src/coco/agent/guardrails.py`
 
 **SQL Validation:**
-1. **Read-only enforcement** — Rejects INSERT, UPDATE, DELETE, DROP, ALTER, CREATE
-2. **Schema allowlist** — Only allows queries against `config.guardrails.allowed_schemas`, which defaults to `${COCO_CATALOG_NAME}.${COCO_SCHEMA_NAME}` (env-interpolated at deploy time so the allowlist always matches the actual UC catalog and schema the agent targets)
-3. **Table extraction** — Parses SQL to identify referenced tables via sqlparse
+1. **Read-only enforcement** - Rejects INSERT, UPDATE, DELETE, DROP, ALTER, CREATE
+2. **Schema allowlist** - Only allows queries against `config.guardrails.allowed_schemas`, which defaults to `${COCO_CATALOG_NAME}.${COCO_SCHEMA_NAME}` (env-interpolated at deploy time so the allowlist always matches the actual UC catalog and schema the agent targets)
+3. **Table extraction** - Parses SQL to identify referenced tables via sqlparse
 
 **PHI/PII Protection:**
 - App-level guardrails in `guardrails.py` (blocks SELECT of sensitive columns)
@@ -203,10 +203,10 @@ llm:
 
 **Prompt Registry:**
 Through MLflow Managed Prompt Registry with 3-part UC-qualified names, CoCo pins versions via the `@production` alias:
-- `<catalog>.cohort_builder_<ns>.cohort_query` — top-level agent instructions
-- `<catalog>.cohort_builder_<ns>.sql_generator` — SQL generation prompt
-- `<catalog>.cohort_builder_<ns>.clinical_codes` — Code identifier prompt
-- `<catalog>.cohort_builder_<ns>.response_synthesizer` — Response synthesis prompt
+- `<catalog>.cohort_builder_<ns>.cohort_query` - top-level agent instructions
+- `<catalog>.cohort_builder_<ns>.sql_generator` - SQL generation prompt
+- `<catalog>.cohort_builder_<ns>.clinical_codes` - Code identifier prompt
+- `<catalog>.cohort_builder_<ns>.response_synthesizer` - Response synthesis prompt
 
 ### 6. Session Persistence (Lakebase)
 
@@ -224,10 +224,10 @@ lakebase:
 ```
 
 **Tables:**
-- `threads` — User conversations
-- `messages` — Chat history
-- `runs` — Query execution state
-- `feedback` — User ratings/comments
+- `threads` - User conversations
+- `messages` - Chat history
+- `runs` - Query execution state
+- `feedback` - User ratings/comments
 
 **User isolation:** All queries filtered by user_id (X-User-ID header).
 
@@ -236,12 +236,12 @@ lakebase:
 #### RWD Tables (Synthetic)
 
 Generated by `src/coco/data_generator/generator.py`:
-- `patients` — 10k patients with demographics
-- `diagnoses` — ICD-10 codes with dates
-- `prescriptions` — NDC codes with dates
-- `procedures` — CPT codes
-- `claims` — Claims data
-- `suppliers` — Manufacturer/pharmacy info
+- `patients` - 10k patients with demographics
+- `diagnoses` - ICD-10 codes with dates
+- `prescriptions` - NDC codes with dates
+- `procedures` - CPT codes
+- `claims` - Claims data
+- `suppliers` - Manufacturer/pharmacy info
 
 **Deterministic generation** (seed=42 by default) for reproducibility.
 
@@ -318,7 +318,7 @@ resources:
 
 ## Data Flows
 
-### User Query → Response
+### User Query -> Response
 
 ![CoCo request flow](design/diagrams/request-flow.svg)
 
@@ -336,15 +336,15 @@ The feedback path:
 
 1. User rates an assistant message (`POST /api/messages/{id}/feedback`). The row lands in Lakebase (`feedback` table, unique on `(message_id, user_id)`).
 2. Notebook `03_optimize_dspy` runs weekly. It pulls the last 7 days of thumbs-up feedback from Lakebase, builds a `dspy.Example(question, answer)` set, and invokes `mlflow.genai.optimize_prompts` with `GepaPromptOptimizer` and a `Correctness` judge scoped to a held-out eval slice.
-3. If the new prompt beats the current `@production` version by more than 2% on the eval, it's registered as a new version in the MLflow Prompt Registry and the `@production` alias is moved. The next serving invocation picks it up via `load_prompt("cohort_query")` — no redeploy.
+3. If the new prompt beats the current `@production` version by more than 2% on the eval, it's registered as a new version in the MLflow Prompt Registry and the `@production` alias is moved. The next serving invocation picks it up via `load_prompt("cohort_query")` - no redeploy.
 
 ## Configuration & Secrets
 
 **Environment variables used:**
-- `DATABRICKS_HOST` — Workspace URL
-- `DATABRICKS_TOKEN` — Personal or service principal token
-- `COCO_CONFIG_PATH` — Path to config file
-- `COCO_WAREHOUSE_ID` — SQL Warehouse for queries
+- `DATABRICKS_HOST` - Workspace URL
+- `DATABRICKS_TOKEN` - Personal or service principal token
+- `COCO_CONFIG_PATH` - Path to config file
+- `COCO_WAREHOUSE_ID` - SQL Warehouse for queries
 
 **Config file (default.yaml):**
 - Database connections
@@ -353,7 +353,7 @@ The feedback path:
 - Data generator parameters
 - Evaluation scenarios
 
-**No hardcoded secrets** — all externalized.
+**No hardcoded secrets** - all externalized.
 
 ## Performance Characteristics
 
@@ -388,20 +388,20 @@ The feedback path:
 
 ## Known Limitations
 
-1. **Serialization format** — Currently JSON; switching to protobuf could improve latency
-2. **Cold start** — First query takes 10-15s (JAR loading); subsequent queries 8-10s
-3. **Timeout** — No graceful fallback if LLM times out; user sees error
-4. **Negation handling** — Hard for LLM to parse "NOT metformin"; should use advanced prompting
-5. **Temporal reasoning** — Date range queries need explicit guidance in prompts
+1. **Serialization format** - Currently JSON; switching to protobuf could improve latency
+2. **Cold start** - First query takes 10-15s (JAR loading); subsequent queries 8-10s
+3. **Timeout** - No graceful fallback if LLM times out; user sees error
+4. **Negation handling** - Hard for LLM to parse "NOT metformin"; should use advanced prompting
+5. **Temporal reasoning** - Date range queries need explicit guidance in prompts
 
 ## Future Improvements
 
-1. **Prompt caching** — Cache commonly identified codes
-2. **Function calling** — Use Claude's built-in tools instead of DSPy
-3. **In-context learning** — Few-shot examples in prompts
-4. **Graph databases** — Track patient journeys (temporal cohorts)
-5. **HIPAA compliance verification** — Automated audit logging
-6. **Multi-modal** — Support images (chest X-rays, lab plots)
+1. **Prompt caching** - Cache commonly identified codes
+2. **Function calling** - Use Claude's built-in tools instead of DSPy
+3. **In-context learning** - Few-shot examples in prompts
+4. **Graph databases** - Track patient journeys (temporal cohorts)
+5. **HIPAA compliance verification** - Automated audit logging
+6. **Multi-modal** - Support images (chest X-rays, lab plots)
 
 ---
 

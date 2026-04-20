@@ -24,7 +24,7 @@ You can cherry-pick pieces of CoCo without taking the whole thing:
 
 ## Full migration: 5 steps
 
-### Step 1 — Map your tools to DSPy tool functions
+### Step 1 - Map your tools to DSPy tool functions
 
 CoCo uses `dspy.ReAct(tools=[fn, fn, fn])` ([see responses_agent.py](../src/coco/agent/responses_agent.py)). DSPy introspects each tool function's Python signature and docstring to build the schema the LLM sees. Every tool you have today needs to be a Python function with:
 
@@ -34,9 +34,9 @@ CoCo uses `dspy.ReAct(tools=[fn, fn, fn])` ([see responses_agent.py](../src/coco
 
 If your existing tools are OpenAI function definitions, the schemas translate one-to-one. The docstring replaces the `description` field.
 
-If your tools are MCP tools you access via Claude Code, reimplement them as Python functions inside the agent codebase. The MCP server goes away in this pattern — the tools run in the agent container.
+If your tools are MCP tools you access via Claude Code, reimplement them as Python functions inside the agent codebase. The MCP server goes away in this pattern - the tools run in the agent container.
 
-### Step 2 — Move prompts into MLflow Prompt Registry
+### Step 2 - Move prompts into MLflow Prompt Registry
 
 Your current prompts are probably markdown files or constants. Migrate them to 3-part UC names:
 
@@ -63,11 +63,11 @@ instructions = p.template
 
 Prompts are now editable in the Databricks UI without redeploying your agent.
 
-### Step 3 — Serve via Mosaic AI Agent Framework
+### Step 3 - Serve via Mosaic AI Agent Framework
 
 Package the agent as a `ResponsesAgent`. The entry point goes in `responses_agent_entry.py` and is passed to `mlflow.pyfunc.log_model(python_model=<path>, ...)` via the models-from-code path. See [`src/coco/agent/deploy.py`](../src/coco/agent/deploy.py) for the full recipe.
 
-The typed resources (`DatabricksSQLWarehouse`, `DatabricksVectorSearchIndex`, `DatabricksServingEndpoint`, `DatabricksTable`) are how the framework grants the serving container scoped auth. Your existing agent probably runs on whatever PAT you put in the env. Stop that — the framework's SP-scoped bindings are a significant security upgrade.
+The typed resources (`DatabricksSQLWarehouse`, `DatabricksVectorSearchIndex`, `DatabricksServingEndpoint`, `DatabricksTable`) are how the framework grants the serving container scoped auth. Your existing agent probably runs on whatever PAT you put in the env. Stop that - the framework's SP-scoped bindings are a significant security upgrade.
 
 ```python
 from databricks import agents
@@ -85,13 +85,13 @@ agents.deploy(
 
 The `environment_vars` pass-through is new-ish. Without it the serving container has none of the config your `${...}` interpolation needs. Pass it explicitly.
 
-### Step 4 — Put Databricks Apps in front of the serving endpoint
+### Step 4 - Put Databricks Apps in front of the serving endpoint
 
-If your agent is consumed by a web UI or an API today, replace that layer with a Databricks App. The typed resource bindings (`AppResourceServingEndpoint`, `AppResourceDatabase`, `AppResourceSqlWarehouse`) grant the app's SP scoped access. Auth is `X-Forwarded-Email` — the app sees the signed-in user's identity on every request.
+If your agent is consumed by a web UI or an API today, replace that layer with a Databricks App. The typed resource bindings (`AppResourceServingEndpoint`, `AppResourceDatabase`, `AppResourceSqlWarehouse`) grant the app's SP scoped access. Auth is `X-Forwarded-Email` - the app sees the signed-in user's identity on every request.
 
 You do not need OBO (`user_api_scopes`). CoCo used to require it and dropped the requirement. Every data access runs as the app's SP. The user identity is used for audit tagging, not for authorization.
 
-### Step 5 — Wire up MLflow experiment + feedback loop
+### Step 5 - Wire up MLflow experiment + feedback loop
 
 Add `@mlflow.trace` decorators to every tool function and the main agent entry. With `mlflow.dspy.autolog()` on at import, every LM call also gets traced. Set the experiment to a per-user path:
 

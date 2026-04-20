@@ -1,7 +1,7 @@
 # Tagging and Attribution Policy (Draft)
 
 A short, opinionated policy for wiring per-workload cost visibility
-into a Databricks deployment. This is a reference starting point —
+into a Databricks deployment. This is a reference starting point -
 adapt the tag values and enforcement posture to match your existing
 operational model. The shape of the policy is what matters, not the
 specific names.

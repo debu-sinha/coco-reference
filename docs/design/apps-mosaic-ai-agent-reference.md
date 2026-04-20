@@ -1,8 +1,8 @@
 # Wiring a Mosaic AI Agent into a Databricks App with Lakebase Session State
 
 **Status:** Draft
-**Authors:** Databricks Solutions Architecture
-**Last updated:** 2026-04-15
+**Author:** [debu-sinha](https://github.com/debu-sinha) (debusinha2009@gmail.com)
+**Last updated:** 2026-04-20
 
 ## Context
 
@@ -71,7 +71,7 @@ the same landmines. This doc is the shortcut.
 - Working deployment: `coco-cohort-copilot` Databricks App on `<your-workspace>`,
   calling the `coco-agent` Model Serving endpoint, persisting sessions to
   a `<your-lakebase-instance>` Lakebase instance
-- Versions that matter: HTMX pinned to `1.9.12` (see gotcha §4.2),
+- Versions that matter: HTMX pinned to `1.9.12` (see gotcha 4.2),
   MLflow 3.x, `databricks-agents >= 1.1`, `psycopg[binary] >= 3.2`,
   `databricks-sdk >= 0.65`
 
@@ -79,7 +79,7 @@ the same landmines. This doc is the shortcut.
 
 ![Apps + Mosaic AI reference architecture](diagrams/apps-mosaic-ai-reference.svg)
 
-The diagram source is `diagrams/apps-mosaic-ai-reference.excalidraw` — open in [excalidraw.com](https://excalidraw.com) to edit and re-export the SVG.
+The diagram source is `diagrams/apps-mosaic-ai-reference.excalidraw` - open in [excalidraw.com](https://excalidraw.com) to edit and re-export the SVG.
 
 Request flow for a single cohort question:
 
@@ -100,7 +100,7 @@ Request flow for a single cohort question:
    (`inspect_schema`, `identify_clinical_codes`, `generate_sql`,
    `execute_sql`, `retrieve_knowledge`) or emits the final answer via the
    built-in `finish` action. No separate keyword-matched planner, no
-   separate synthesize prompt (see gotcha §3.1 for the migration).
+   separate synthesize prompt (see gotcha 3.1 for the migration).
 
 ## Gotchas
 
@@ -143,7 +143,7 @@ ownership filtering, not in the auth layer.
 `database.lakebase:*` scope or first-class documentation that OBO is not
 supported for Lakebase, to save future customers the investigation.
 
-#### 1.2 PGPASSWORD is not injected — mint it at startup
+#### 1.2 PGPASSWORD is not injected - mint it at startup
 
 **Symptom:** App boots, the `PG*` env vars are set except `PGPASSWORD`,
 psycopg connection fails with `FATAL: password authentication failed`.
@@ -212,7 +212,7 @@ CREATE SCHEMA IF NOT EXISTS coco_app;
 ```
 
 Setting `search_path` via a `psycopg_pool.AsyncConnectionPool` `configure`
-callback has its own problem (see §1.4). The working path is `libpq`'s
+callback has its own problem (see 1.4). The working path is `libpq`'s
 `PGOPTIONS` env var, which is read at connect time and applies to every
 new connection in the pool:
 
@@ -239,7 +239,7 @@ as initialized.
 **Root cause:** `_resolve_pgpassword()` mints a Lakebase OAuth token
 via `ws.database.generate_database_credential(...)` at pool open. The
 documented TTL of that token is ~1 hour. The pool object itself has
-no concept of credential expiry — it holds the connstr (with the
+no concept of credential expiry - it holds the connstr (with the
 embedded password) forever. Once the token expires, libpq background
 workers can't authenticate new connections, and `pool.connection()`
 timeouts present as `PoolTimeout` rather than an auth error (the
@@ -324,7 +324,7 @@ async def execute(self, query, params=None):
 `_is_probable_auth_expiry` treats `psycopg_pool.PoolTimeout` as
 likely-auth (because that's how auth failures surface through the
 pool) plus any exception whose message contains `password` / `auth`
-/ `expired` / `token`. It's a heuristic, not a perfect classifier —
+/ `expired` / `token`. It's a heuristic, not a perfect classifier -
 the cost of a false positive is a single extra pool rebuild, the
 cost of a false negative is "app silently broken again after 1h", so
 we bias toward rebuilding.
@@ -516,7 +516,7 @@ class CocoAgent:
 `src/coco/agent/responses_agent.py::predict_stream`.
 
 **Architectural note:** This is the same pattern Claude Code / MCP
-uses — tool schemas out, structured tool-use blocks back, runtime
+uses - tool schemas out, structured tool-use blocks back, runtime
 executes, model decides next step. No brittle keyword matching, no
 terminal `_synthesize_response` call, no dead-end iteration paths.
 
@@ -581,7 +581,7 @@ not the OpenAI `data: {"choices": [{"delta": ...}]}` shape the browser's
 browser requires per-frame format translation.
 
 The reference sidesteps this entirely. The backend calls the agent
-**non-streaming** (`ws.serving_endpoints.query` equivalent — see §5 for
+**non-streaming** (`ws.serving_endpoints.query` equivalent - see section5 for
 the actual shape), gets the full assistant text, then **chunks the text
 at the SSE layer** on the way out to the browser. The effect is a
 streaming visual experience without any of the MLflow SSE parsing glue.
@@ -675,7 +675,7 @@ caller reinvents the raw HTTP path.
   resource type? If yes, this doc's gotcha 2.1 fix becomes a simpler
   one-liner.
 - Is there a roadmap for a streaming-native path out of the Agent Framework
-  serving wrapper, so the chunked-at-the-UI-layer workaround in §4.3 can
+  serving wrapper, so the chunked-at-the-UI-layer workaround in section4.3 can
   be replaced with real token streaming?
 - Should the Databricks Apps runtime expose a `DATABRICKS_APP_SP_TOKEN`
   environment variable directly, so apps that need a short-lived token for

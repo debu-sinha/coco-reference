@@ -4,27 +4,27 @@ This directory contains comprehensive tests for CoCo v2, covering unit tests, in
 
 ## Test Organization
 
-- **`conftest.py`** — Shared pytest fixtures and configuration
-  - `mock_config` — Safe test configuration
-  - `mock_statement_client` — Mocked SQL Statement Execution API
-  - `mock_gateway_client` — Mocked Mosaic AI Gateway
-  - `mock_lakebase` — In-memory Lakebase stub for session persistence
-  - `mock_vector_search` — Mocked vector search client
-  - `sample_patient_data` — 10 synthetic RWD patients
+- **`conftest.py`** - Shared pytest fixtures and configuration
+  - `mock_config` - Safe test configuration
+  - `mock_statement_client` - Mocked SQL Statement Execution API
+  - `mock_gateway_client` - Mocked Mosaic AI Gateway
+  - `mock_lakebase` - In-memory Lakebase stub for session persistence
+  - `mock_vector_search` - Mocked vector search client
+  - `sample_patient_data` - 10 synthetic RWD patients
 
-- **`unit/`** — Unit tests (no external dependencies, all mocked)
-  - `test_config.py` — Config loading, env var interpolation, validation
-  - `test_sql_statement_client.py` — Statement execution, polling, retries
-  - `test_gateway_client.py` — LLM endpoint routing, retries, streaming
-  - `test_guardrails.py` — SQL validation, read-only enforcement, schema checks
-  - `test_signatures.py` — DSPy signature structure and field definitions
-  - `test_data_generator.py` — Synthetic data generation, correlations, determinism
-  - `test_tools.py` — Clinical codes, SQL generation, knowledge RAG, tool integration
+- **`unit/`** - Unit tests (no external dependencies, all mocked)
+  - `test_config.py` - Config loading, env var interpolation, validation
+  - `test_sql_statement_client.py` - Statement execution, polling, retries
+  - `test_gateway_client.py` - LLM endpoint routing, retries, streaming
+  - `test_guardrails.py` - SQL validation, read-only enforcement, schema checks
+  - `test_signatures.py` - DSPy signature structure and field definitions
+  - `test_data_generator.py` - Synthetic data generation, correlations, determinism
+  - `test_tools.py` - Clinical codes, SQL generation, knowledge RAG, tool integration
 
-- **`integration/`** — Integration tests (mocked Databricks services)
-  - `test_responses_agent.py` — Agent end-to-end flow, streaming, trace IDs
-  - `test_app_routes.py` — FastAPI routes, user isolation, error handling
-  - `test_session_persistence.py` — Thread/message/run CRUD, state tracking
+- **`integration/`** - Integration tests (mocked Databricks services)
+  - `test_responses_agent.py` - Agent end-to-end flow, streaming, trace IDs
+  - `test_app_routes.py` - FastAPI routes, user isolation, error handling
+  - `test_session_persistence.py` - Thread/message/run CRUD, state tracking
 
 ## Running Tests
 
@@ -87,9 +87,9 @@ pytest --lf
 
 Tests are marked with markers to categorize them:
 
-- `@pytest.mark.unit` — Unit tests
-- `@pytest.mark.integration` — Integration tests
-- `@pytest.mark.asyncio` — Async tests (use pytest-asyncio)
+- `@pytest.mark.unit` - Unit tests
+- `@pytest.mark.integration` - Integration tests
+- `@pytest.mark.asyncio` - Async tests (use pytest-asyncio)
 
 ## Mocking Strategy
 
@@ -114,10 +114,10 @@ def test_something(mock_config: CocoConfig, mock_statement_client):
 1. **Choose unit or integration** based on whether external services are mocked or real
 2. **Use fixtures** from `conftest.py` for common mocked dependencies
 3. **Add marker** (`@pytest.mark.unit` or `@pytest.mark.integration`)
-4. **Test behavior, not implementation** — focus on inputs/outputs, not internal details
-5. **Avoid slow operations** — mock HTTP calls, database queries, file I/O
-6. **Keep tests focused** — one test per behavior
-7. **Use descriptive names** — `test_<what>_<when>_<expect>`
+4. **Test behavior, not implementation** - focus on inputs/outputs, not internal details
+5. **Avoid slow operations** - mock HTTP calls, database queries, file I/O
+6. **Keep tests focused** - one test per behavior
+7. **Use descriptive names** - `test_<what>_<when>_<expect>`
 
 ## Coverage
 

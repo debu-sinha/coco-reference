@@ -10,16 +10,16 @@ AI workloads.
 
 ```
 docs/cost-attribution/
-├── README.md                 <- you are here
-├── policy.md                 <- tagging policy draft
-├── warehouse_setup.sql       <- CREATE WAREHOUSE template with tags
-└── queries/
-    ├── dbu_by_workload.sql      DBU spend grouped by workload tag
-    ├── dbu_timeseries.sql       Daily DBU spend time series
-    ├── top_cost_queries.sql     Most expensive SQL queries
-    ├── warehouse_utilization.sql warehouse idle vs query time
-    ├── serving_endpoint_cost.sql  per-endpoint serving spend
-    └── cost_spikes.sql          Daily deltas flagged by percentage
+|--  README.md                 <- you are here
+|--  policy.md                 <- tagging policy draft
+|--  warehouse_setup.sql       <- CREATE WAREHOUSE template with tags
+\--  queries/
+    |--  dbu_by_workload.sql      DBU spend grouped by workload tag
+    |--  dbu_timeseries.sql       Daily DBU spend time series
+    |--  top_cost_queries.sql     Most expensive SQL queries
+    |--  warehouse_utilization.sql warehouse idle vs query time
+    |--  serving_endpoint_cost.sql  per-endpoint serving spend
+    \--  cost_spikes.sql          Daily deltas flagged by percentage
 ```
 
 ## How to use this

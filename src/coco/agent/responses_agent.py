@@ -1,5 +1,7 @@
 """CoCo agent: dspy.ReAct with native tool calling.
 
+Author: debu-sinha (debusinha2009@gmail.com)
+
 Replaces the previous keyword-matched planner loop with dspy.ReAct,
 which uses the LLM's native function-calling capability to decide
 which tools to call and what arguments to pass. This is architecturally
@@ -14,7 +16,7 @@ to build the tool schemas the LLM sees. Each function returns a
 string result that feeds back into the model's context for the next
 reasoning step.
 
-DSPy's LM is configured to point at databricks-claude-sonnet-4-5
+DSPy's LM is configured to point at databricks-claude-sonnet-4-6
 via the Mosaic AI Foundation Model API. The configuration happens
 once at CocoAgent.__init__ time using the serving container's SP
 credentials (WorkspaceClient with workload identity).

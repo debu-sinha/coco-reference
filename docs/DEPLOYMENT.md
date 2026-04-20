@@ -400,7 +400,7 @@ databricks jobs get-run-output --run-id <run-id>
 ## Support
 
 For issues, check:
-- `docs/ARCHITECTURE.md` — System design details
-- `README.md` — Configuration reference
-- Databricks documentation — Platform-specific features
-- `tests/README.md` — Testing configuration files
+- `docs/ARCHITECTURE.md` - System design details
+- `README.md` - Configuration reference
+- Databricks documentation - Platform-specific features
+- `tests/README.md` - Testing configuration files

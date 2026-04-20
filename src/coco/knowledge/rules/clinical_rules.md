@@ -141,9 +141,9 @@ ICD-10-CM codes follow a hierarchical structure from general to specific:
 
 ```
 Category (1 letter + 2 digits): E11 (Type 2 DM)
-├─ Subcategory (. + 1 char): E11.2 (With renal complications)
-├─ Deeper specificity (+ 2 chars): E11.21 (With diabetic nephropathy)
-└─ Most specific: E11.21 (With diabetic nephropathy without chronic kidney disease)
+|-  Subcategory (. + 1 char): E11.2 (With renal complications)
+|-  Deeper specificity (+ 2 chars): E11.21 (With diabetic nephropathy)
+\-  Most specific: E11.21 (With diabetic nephropathy without chronic kidney disease)
 ```
 
 ### Diabetes (E10-E14)

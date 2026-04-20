@@ -40,8 +40,8 @@
 Typical workflow for cohort queries today:
 1. Clinical team: "Find Type 2 diabetes patients on metformin with recent HbA1c labs"
 2. Data team: Draft SQL, validate with clinical colleagues
-3. Back-and-forth: "Actually, include hypertension too" → modify SQL
-4. **Time: 2-8 hours** ⏱️
+3. Back-and-forth: "Actually, include hypertension too" -> modify SQL
+4. **Time: 2-8 hours** 
 
 **Cost:**
 - Data engineer time (senior, $150/hr)
@@ -50,19 +50,22 @@ Typical workflow for cohort queries today:
 
 ### Slide 3: The Solution (2 min)
 
-"**CoCo: Natural Language → Validated SQL → Results**"
+"**CoCo: Natural Language -> Validated SQL -> Results**"
 
 ```
 User: "Type 2 diabetes patients on metformin"
-                    ↓
+                      |
+                      v
          [AI Agent (Claude)]
-                    ↓
+                      |
+                      v
         SELECT * FROM diagnoses
         JOIN prescriptions
         WHERE code = 'E11.9'
         AND drug = 'metformin'
-                    ↓
-           42 patients found ✓
+                      |
+                      v
+           42 patients found [x]
 ```
 
 **Key features:**
@@ -90,7 +93,7 @@ User: "Type 2 diabetes patients on metformin"
 **Query 2: Complex (3 min)**
 - Input: "Type 2 diabetes patients on metformin with HbA1c over 8% in the last 30 days"
 - Show:
-  - Multi-step planning (code identification → SQL → execution)
+  - Multi-step planning (code identification -> SQL -> execution)
   - Multiple JOINs in generated SQL
   - Subqueries for date filtering
 - Output: "Found 312 patients with suboptimal control"
@@ -100,7 +103,7 @@ User: "Type 2 diabetes patients on metformin"
 - Show:
   - Conversational refinement (uses prior context)
   - Adjusted SQL
-  - Reduced results (312 → 87)
+  - Reduced results (312 -> 87)
 - Highlight: No need to re-query from scratch
 
 **Rate Response (2 min)**
@@ -108,7 +111,7 @@ User: "Type 2 diabetes patients on metformin"
 - Explain: Feedback trains the model
 
 **Q from audience:** "What if the SQL is wrong?"
-- Answer: "Let's look at it" → click "Show SQL"
+- Answer: "Let's look at it" -> click "Show SQL"
 - Explain guardrails: read-only, schema whitelist
 
 ### Slide 4: Under the Hood (5 min)
@@ -118,11 +121,11 @@ User: "Type 2 diabetes patients on metformin"
 ![CoCo request flow](design/diagrams/request-flow.svg)
 
 **Key innovations:**
-1. **dspy.ReAct with native tool calling** — the model picks tools from Python function signatures, no keyword-matched planner (see `src/coco/agent/responses_agent.py`, `MAX_ITERS=7`)
-2. **Clinical codes** — `identify_clinical_codes` tool returns ICD-10/NDC codes with rationale
-3. **SQL generation + guardrails** — `generate_sql` produces Databricks SQL, `execute_sql` validates read-only + schema allowlist before running
-4. **Streaming** — Server-sent events chunk the answer to the browser while the agent runs
-5. **Feedback loop** — Thumbs up/down drives weekly GEPA optimization via `mlflow.genai.optimize_prompts`
+1. **dspy.ReAct with native tool calling** - the model picks tools from Python function signatures, no keyword-matched planner (see `src/coco/agent/responses_agent.py`, `MAX_ITERS=7`)
+2. **Clinical codes** - `identify_clinical_codes` tool returns ICD-10/NDC codes with rationale
+3. **SQL generation + guardrails** - `generate_sql` produces Databricks SQL, `execute_sql` validates read-only + schema allowlist before running
+4. **Streaming** - Server-sent events chunk the answer to the browser while the agent runs
+5. **Feedback loop** - Thumbs up/down drives weekly GEPA optimization via `mlflow.genai.optimize_prompts`
 
 **Prompt optimization:**
 - Show 03_optimize_dspy.py concept
@@ -305,17 +308,17 @@ A: Pay for compute: SQL Warehouse, Model Serving endpoint. ~$10-20/month for dem
 ### "Network issues / No internet"
 - Have offline demo video ready
 - Screenshots of expected outputs
-- Have an offline backup — a screenshot walk-through of notebook 02
-  output + MLflow eval run — so attendees can still follow the flow.
+- Have an offline backup - a screenshot walk-through of notebook 02
+  output + MLflow eval run - so attendees can still follow the flow.
 
 ---
 
 ## Takeaways (Slide at end)
 
-1. **AI agents accelerate RWD analysis** — from hours to seconds
-2. **Guardrails make LLMs safe for healthcare** — read-only, schema whitelist, audit trails
-3. **Feedback improves performance** — model learns from your data and use cases
-4. **Open source means customizable** — add your own tools, evaluation metrics, prompts
+1. **AI agents accelerate RWD analysis** - from hours to seconds
+2. **Guardrails make LLMs safe for healthcare** - read-only, schema whitelist, audit trails
+3. **Feedback improves performance** - model learns from your data and use cases
+4. **Open source means customizable** - add your own tools, evaluation metrics, prompts
 
 **Next steps for your org:**
 - Clone the repo
@@ -329,11 +332,11 @@ A: Pay for compute: SQL Warehouse, Model Serving endpoint. ~$10-20/month for dem
 ## Follow-Up
 
 **Post-workshop resources:**
-- `README.md` — Full project overview
-- `docs/ARCHITECTURE.md` — Deep dive on design
-- `docs/DEPLOYMENT.md` — Production deployment guide
-- `tests/README.md` — Testing setup
-- GitHub issues — Questions & bugs
+- `README.md` - Full project overview
+- `docs/ARCHITECTURE.md` - Deep dive on design
+- `docs/DEPLOYMENT.md` - Production deployment guide
+- `tests/README.md` - Testing setup
+- GitHub issues - Questions & bugs
 
 **Contact:**
 - engineering@databricks.com

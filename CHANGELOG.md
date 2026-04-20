@@ -1,6 +1,6 @@
 # Changelog
 
-## v2.0.0 — 2026-04-19
+## v2.0.0 - 2026-04-19
 
 The first public release.
 
@@ -37,7 +37,7 @@ Validated on a fresh Databricks workspace from a `git clone`:
 ### Not validated end-to-end in this release
 
 - Blue-green or A/B prompt rollouts mentioned in design docs
-- Multi-tenant single-agent variant — the schema cache in `responses_agent.py` is process-wide, so one agent process serves one (catalog, schema) pair
+- Multi-tenant single-agent variant - the schema cache in `responses_agent.py` is process-wide, so one agent process serves one (catalog, schema) pair
 - Inference table population (setup does not enable them)
 
 ### Dependency pins

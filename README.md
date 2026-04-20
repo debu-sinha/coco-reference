@@ -1,5 +1,7 @@
 # CoCo v2 -- AI Cohort Copilot for Healthcare RWD
 
+**Author:** [debu-sinha](https://github.com/debu-sinha) (debusinha2009@gmail.com)
+
 CoCo is a natural-language cohort-building assistant for real-world healthcare data. Ask for a cohort ("Type 2 diabetes patients on metformin with recent labs") and CoCo identifies clinical codes, generates and validates SQL against a Databricks warehouse, executes the query, and synthesizes a response with sample rows and clinical context.
 
 This repo is a **turnkey reference implementation**. Clone it, deploy the bundle, run the setup job, and you'll have a working Cohort Copilot in your own Databricks workspace in about 30 minutes. Multiple users can deploy to the same workspace without collisions. Each user gets their own namespaced resources.
@@ -11,7 +13,7 @@ This repo is a **turnkey reference implementation**. Clone it, deploy the bundle
 You'll need these before you start:
 
 - A Databricks workspace with **Unity Catalog** and **Model Serving**
-- An **existing serverless SQL warehouse** (the setup job doesn't create one). To find the warehouse ID: **SQL → SQL Warehouses → click your warehouse → copy the 16-char hex from the URL** (e.g. `https://<workspace>/sql/warehouses/abc123def456789` → warehouse_id is `abc123def456789`). If you don't have one, ask your workspace admin to create a serverless warehouse (Small is enough for cohort queries).
+- An **existing serverless SQL warehouse** (the setup job doesn't create one). To find the warehouse ID: **SQL -> SQL Warehouses -> click your warehouse -> copy the 16-char hex from the URL** (e.g. `https://<workspace>/sql/warehouses/abc123def456789` -> warehouse_id is `abc123def456789`). If you don't have one, ask your workspace admin to create a serverless warehouse (Small is enough for cohort queries).
 - An **existing Unity Catalog catalog** where you have CREATE SCHEMA permission. The setup job can't create catalogs on Default Storage workspaces. Run the preflight script (below) to find one you can use.
 - `databricks-claude-sonnet-4-6` (or equivalent) **FMAPI endpoint** available in your workspace
 - **Databricks CLI** installed and a profile configured (`databricks auth login`)
@@ -25,9 +27,9 @@ Optional (the setup job creates these if you have permission):
 - Lakebase instance (for chat session persistence)
 - Vector Search endpoint (for clinical knowledge RAG)
 
-### Step 0: Preflight check (MANDATORY — every deployer runs this)
+### Step 0: Preflight check (MANDATORY - every deployer runs this)
 
-**Who runs it:** every person who will deploy CoCo — you, your team, your platform admins. Run it against **your own** CLI profile so it probes **your** permissions. Admin-only preflights are not enough. The setup job runs as the deployer's identity, so the deployer is the only one whose permissions matter.
+**Who runs it:** every person who will deploy CoCo - you, your team, your platform admins. Run it against **your own** CLI profile so it probes **your** permissions. Admin-only preflights are not enough. The setup job runs as the deployer's identity, so the deployer is the only one whose permissions matter.
 
 **When to run it:** after you have the CLI profile configured (`databricks auth login`) and before any `databricks bundle` command. It takes about 60 seconds.
 
@@ -58,7 +60,7 @@ The script actively exercises the permissions (not just lists APIs). It probes:
 
 If **no catalog** passes the CREATE SCHEMA probe:
 - **Ask your workspace admin** to grant: `GRANT USE CATALOG, CREATE SCHEMA ON CATALOG <catalog> TO \`<your-email>\``
-- **Or** create a catalog you own: UI → Catalog → + → Create a new catalog (not available on all workspaces — Default Storage workspaces block this for non-admins)
+- **Or** create a catalog you own: UI -> Catalog -> + -> Create a new catalog (not available on all workspaces - Default Storage workspaces block this for non-admins)
 
 ### Deploy in 3 commands
 
@@ -102,11 +104,11 @@ All resources are namespaced by `unique_id` so multiple users can deploy to the 
 | Model Serving endpoint | `coco-agent-<id>` | `dspy.ReAct` agent via [Mosaic AI Agent Framework](https://docs.databricks.com/aws/en/generative-ai/agent-framework/) [(deploy)](src/coco/agent/deploy.py) |
 | UC registered model | `<catalog>.cohort_builder_<id>.coco_agent_<id>` | Versioned agent model [(deploy.py)](src/coco/agent/deploy.py) |
 | Databricks App | `coco-<id>` | FastAPI + HTMX chat UI, SP-only auth via `X-Forwarded-Email` [(auth.py)](src/coco/app/auth.py) |
-| MLflow experiment | `/Users/<email>/coco-agent` | Per-user. Traces, runs, model artifacts. **No fallback** — setup errors loudly if `COCO_MLFLOW_EXPERIMENT` is unset. This is [intentional](src/coco/agent/prompts/__init__.py) so traces can never silently land in a shared experiment. |
+| MLflow experiment | `/Users/<email>/coco-agent` | Per-user. Traces, runs, model artifacts. **No fallback** - setup errors loudly if `COCO_MLFLOW_EXPERIMENT` is unset. This is [intentional](src/coco/agent/prompts/__init__.py) so traces can never silently land in a shared experiment. |
 
 ### Minimal mode
 
-Pass `--var minimal=true` to `bundle run setup_workspace` and the Vector Search index creation step is skipped. The VS endpoint is still provisioned (cheap, idempotent), and Lakebase still runs. The agent deploys either way — its `retrieve_knowledge` tool just returns empty results when the index isn't populated.
+Pass `--var minimal=true` to `bundle run setup_workspace` and the Vector Search index creation step is skipped. The VS endpoint is still provisioned (cheap, idempotent), and Lakebase still runs. The agent deploys either way - its `retrieve_knowledge` tool just returns empty results when the index isn't populated.
 
 ```bash
 databricks bundle run setup_workspace -t demo -p PROFILE \
@@ -114,7 +116,7 @@ databricks bundle run setup_workspace -t demo -p PROFILE \
   --var minimal=true
 ```
 
-Use this for quick learning deploys, workspaces where VS index creation is slow or restricted, or cost-sensitive test runs. Full Lakebase-skip (for workspaces without Lakebase) is planned but not tested yet — see [`CHANGELOG.md`](CHANGELOG.md).
+Use this for quick learning deploys, workspaces where VS index creation is slow or restricted, or cost-sensitive test runs. Full Lakebase-skip (for workspaces without Lakebase) is planned but not tested yet - see [`CHANGELOG.md`](CHANGELOG.md).
 
 ### Multi-user isolation
 
@@ -165,7 +167,7 @@ Things that work today but might bite you in specific conditions. Check [`CHANGE
 
 - **Lakebase credential rotation.** Tokens are minted on demand with a ~1h TTL and the pool rotates at 55 minutes. If Databricks changes the TTL, the pool will hit auth errors on the next query. We don't poll or log credential health. See [`src/coco/app/sessions/lakebase.py`](src/coco/app/sessions/lakebase.py).
 - **Prompt Registry flag can be disabled after deploy.** The preflight script catches it before setup, but nothing checks it at request time. If an admin flips the flag off post-deploy, `load_prompt` falls back to bundled DEFAULTS silently. See [`src/coco/agent/prompts/__init__.py`](src/coco/agent/prompts/__init__.py).
-- **Agent endpoint cold starts.** Scale-to-zero is on by default. First request after idle can take 30-60 seconds while the container warms. The app doesn't queue or show a dedicated "waking up" state — the user sees the standard "agent is thinking" spinner.
+- **Agent endpoint cold starts.** Scale-to-zero is on by default. First request after idle can take 30-60 seconds while the container warms. The app doesn't queue or show a dedicated "waking up" state - the user sees the standard "agent is thinking" spinner.
 - **LLM-as-judge scorers use `asyncio.run`.** `response_relevance_scorer` and `phi_leak_scorer` in [`src/coco/observability/scorers.py`](src/coco/observability/scorers.py) spin an event loop. They worked in our validation environment but treat them as lower-confidence than the code scorers.
 - **Vector Search index takes a few minutes to go live** after `setup_workspace` creates it. The agent's `retrieve_knowledge` tool returns empty results until the index finishes syncing. Setup waits but does not gate on index-ready.
 
