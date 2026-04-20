@@ -1,0 +1,127 @@
+# CoCo v2 - single configuration file for any Databricks workspace.
+# Override via environment variables or a production.yaml next to this file.
+
+deployment:
+  mode: "demo"                        # demo | dev | staging | prod
+
+workspace:
+  host: ${DATABRICKS_HOST}             # auto-injected in Databricks Apps
+  # Service principal (for background work / schema migrations)
+  client_id: ${DATABRICKS_CLIENT_ID}
+  client_secret: ${DATABRICKS_CLIENT_SECRET}
+
+catalog:
+  name: ${COCO_CATALOG_NAME}
+  schema: ${COCO_SCHEMA_NAME}
+  volumes:
+    knowledge: "coco_knowledge"
+    artifacts: "coco_artifacts"
+
+tables:
+  # RWD (synthetic)
+  patients: "patients"
+  diagnoses: "diagnoses"
+  prescriptions: "prescriptions"
+  procedures: "procedures"
+  claims: "claims"
+  suppliers: "suppliers"
+  # Inference logging (written by Model Serving Inference Tables)
+  agent_inference_table: "coco_agent_inference"
+
+llm:
+  # Workshop default: call the Claude Sonnet 4.5 Model Serving endpoint
+  # directly. Phase 1 (May) layers a Mosaic AI Gateway route named
+  # `coco-llm` in front of this for safety filters, rate limits, and
+  # model routing; to switch, set gateway_route to "coco-llm" after the
+  # route is created.
+  endpoint: "databricks-claude-sonnet-4-6"
+  gateway_route: "databricks-claude-sonnet-4-6"
+  temperature: 0.0
+  max_tokens: 4096
+
+sql_warehouse:
+  # Serverless SQL Warehouse used via Statement Execution API
+  id: ${COCO_WAREHOUSE_ID}
+  wait_timeout: "0s"                   # async: returns statement_id immediately
+  on_wait_timeout: "CONTINUE"
+  result_disposition: "EXTERNAL_LINKS" # handle >25 MiB
+  result_format: "ARROW_STREAM"
+
+lakebase:
+  # Session/thread/run state store. Autoscaling project.
+  instance: "${COCO_LAKEBASE_INSTANCE}"
+  database: "coco"
+  schema: "sessions"
+  # Auth: App passes x-forwarded-access-token for user-scoped queries;
+  # service principal is used for schema migrations and background work.
+  pool:
+    min_conns: 1
+    max_conns: 10
+    max_idle_seconds: 300
+
+vector_search:
+  endpoint_name: "coco-vs"
+  index_name: "coco_knowledge_idx"
+  # Managed embeddings endpoint. Swap to `databricks-bge-large-en` if you
+  # prefer BGE — both work, GTE is the default because it's the most
+  # reliably served foundation embedding endpoint across regions.
+  embedding_model: "databricks-gte-large-en"
+  source_table: "knowledge_chunks"
+  primary_key: "chunk_id"
+  text_column: "content"
+  hybrid: true                         # BM25 + embedding with RRF
+
+agent_endpoint:
+  name: "${COCO_AGENT_ENDPOINT_NAME}"
+  scale_to_zero: false                 # off during workshop
+  min_provisioned_concurrency: 1
+  max_provisioned_concurrency: 4
+  workload_size: "Small"
+
+mlflow:
+  # Per-user. Notebook kernels set COCO_MLFLOW_EXPERIMENT explicitly
+  # to /Users/<email>/coco-agent; the agent deploy pipeline bakes the
+  # resolved value into the model artifact. The empty default here is
+  # intentional — if nothing sets the env var the downstream mlflow
+  # call errors out loudly instead of silently landing traces in a
+  # shared experiment.
+  experiment_name: "${COCO_MLFLOW_EXPERIMENT:}"
+  prompt_registry:
+    cohort_query: "coco.cohort_query"
+    sql_generator: "coco.sql_generator"
+    clinical_codes: "coco.clinical_codes"
+    response_synthesizer: "coco.response_synthesizer"
+
+app:
+  title: "CoCo - Cohort Copilot"
+  max_message_tokens: 4000
+  sse_heartbeat_seconds: 10
+  polling_fallback_after_seconds: 300
+  # For workshop: name placeholder that setup notebook fills in
+  agent_endpoint_url: ${COCO_AGENT_ENDPOINT_URL}
+
+guardrails:
+  # Enforced by the agent code. Gateway-level PHI/PII is configured on the
+  # Gateway route (not here). allowed_schemas uses the same env vars as the
+  # catalog block above so the allowlist always matches the real data
+  # location — otherwise inspect_schema (env-driven) and validate_sql_query
+  # (config-driven) would disagree and every query would be rejected.
+  sql_read_only: true
+  allowed_schemas:
+    - "${COCO_CATALOG_NAME}.${COCO_SCHEMA_NAME}"
+  max_result_rows: 100000
+
+evaluation:
+  scenarios_file: "evaluation/scenarios.yaml"
+  scorers:
+    - "sql_validity"
+    - "clinical_code_accuracy"
+    - "response_relevance"
+    - "phi_leak_check"
+
+data_generator:
+  num_patients: 10000
+  num_suppliers: 25
+  start_date: "2020-01-01"
+  end_date: "2025-12-31"
+  seed: 42

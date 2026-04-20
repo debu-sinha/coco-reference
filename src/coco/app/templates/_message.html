@@ -1,0 +1,38 @@
+{# Partial template for a single message #}
+<div class="message message-{{ msg.role }}" data-message-id="{{ msg.id }}">
+    <div class="message-header">
+        <span class="message-role">{{ 'You' if msg.role == 'user' else 'Assistant' }}</span>
+        <span class="message-time">{{ msg.created_at.strftime('%H:%M') }}</span>
+    </div>
+
+    <div class="message-content">
+        {% if msg.role == 'assistant' %}{{ msg.content | markdown | safe }}{% else %}{{ msg.content }}{% endif %}
+    </div>
+
+    {% if msg.tool_calls %}
+    <details class="trajectory-panel">
+        <summary>How I answered this ({{ msg.tool_calls | length }} step{{ '' if msg.tool_calls|length == 1 else 's' }})</summary>
+        <ol class="trajectory-steps">
+            {% for tc in msg.tool_calls %}
+            <li>
+                <strong>{{ tc.name or tc.tool or 'step' }}</strong>
+                {% if tc.thought or tc.rationale %}
+                <div class="trajectory-thought">{{ tc.thought or tc.rationale }}</div>
+                {% endif %}
+                {% if tc.result is defined and tc.result %}
+                <div class="trajectory-result">{{ tc.result | string | truncate(200) }}</div>
+                {% elif tc.arguments %}
+                <div class="trajectory-result">{{ tc.arguments | tojson | truncate(200) }}</div>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ol>
+    </details>
+    {% endif %}
+
+    {% if msg.role == 'assistant' %}
+    {% with msg_id=msg.id, rating=msg.feedback_rating %}
+        {% include "_feedback_buttons.html" %}
+    {% endwith %}
+    {% endif %}
+</div>

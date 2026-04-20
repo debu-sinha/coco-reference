@@ -1,0 +1,158 @@
+bundle:
+  name: coco-agent
+
+variables:
+  unique_id:
+    description: "Short identifier to namespace all resources (e.g. your initials)"
+    default: dev
+  catalog:
+    description: "Unity Catalog name for CoCo resources"
+    default: coco_demo
+  schema:
+    description: "Schema for tables and volumes (namespaced by unique_id)"
+    default: cohort_builder_${var.unique_id}
+  warehouse_id:
+    description: "SQL Warehouse ID for query execution"
+    default: ""
+  lakebase_instance:
+    description: "Lakebase instance name for session store"
+    default: coco-lb-${var.unique_id}
+  lakebase_database:
+    description: "Lakebase database name"
+    default: coco_${var.unique_id}
+  vs_endpoint:
+    description: "Vector Search endpoint name (namespaced)"
+    default: coco-vs-${var.unique_id}
+  agent_endpoint:
+    description: "Model Serving endpoint name (namespaced)"
+    default: coco-agent-${var.unique_id}
+  app_name:
+    description: "Databricks App name (namespaced)"
+    default: coco-${var.unique_id}
+  environment:
+    description: "Deployment environment (demo, dev, staging, prod)"
+    default: demo
+  num_patients:
+    description: "Number of patients for synthetic data generation"
+    default: "10000"
+  agent_endpoint_url:
+    description: "URL of the agent Model Serving endpoint (filled per target)"
+    default: ""
+
+resources:
+  jobs:
+    setup_workspace:
+      name: CoCo Setup (${var.unique_id})
+      environments:
+        - environment_key: default
+          spec:
+            client: "1"
+      tasks:
+        - task_key: setup
+          notebook_task:
+            notebook_path: notebooks/00_setup_workspace.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              warehouse_id: ${var.warehouse_id}
+              lakebase_instance: ${var.lakebase_instance}
+              vs_endpoint: ${var.vs_endpoint}
+              agent_endpoint: ${var.agent_endpoint}
+              app_name: ${var.app_name}
+              agent_repo_volume: ${workspace.file_path}
+          environment_key: default
+          timeout_seconds: 3600
+      max_concurrent_runs: 1
+
+    run_evaluation:
+      name: CoCo Evaluation (${var.unique_id})
+      environments:
+        - environment_key: default
+          spec:
+            client: "1"
+      schedule:
+        quartz_cron_expression: "0 0 2 ? * SUN"
+        timezone_id: UTC
+        pause_status: PAUSED
+      tasks:
+        - task_key: evaluate
+          notebook_task:
+            notebook_path: notebooks/02_evaluate.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              warehouse_id: ${var.warehouse_id}
+              agent_endpoint: ${var.agent_endpoint}
+              category: ""
+              difficulty: ""
+          environment_key: default
+          timeout_seconds: 3600
+      max_concurrent_runs: 1
+
+    teardown_workspace:
+      name: CoCo Teardown (${var.unique_id})
+      environments:
+        - environment_key: default
+          spec:
+            client: "1"
+      tasks:
+        - task_key: teardown
+          notebook_task:
+            notebook_path: notebooks/99_teardown.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              lakebase_instance: ${var.lakebase_instance}
+              vs_endpoint: ${var.vs_endpoint}
+              agent_endpoint: ${var.agent_endpoint}
+              app_name: ${var.app_name}
+              confirm_teardown: "YES"
+              delete_vs_endpoint: "NO"
+              delete_catalog: "NO"
+          environment_key: default
+          timeout_seconds: 1800
+      max_concurrent_runs: 1
+
+    optimize_dspy:
+      name: CoCo DSPy Optimization (${var.unique_id})
+      environments:
+        - environment_key: default
+          spec:
+            client: "1"
+      schedule:
+        quartz_cron_expression: "0 0 2 ? * SUN"
+        timezone_id: UTC
+        pause_status: PAUSED
+      tasks:
+        - task_key: optimize
+          notebook_task:
+            notebook_path: notebooks/03_optimize_dspy.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              warehouse_id: ${var.warehouse_id}
+              lakebase_instance: ${var.lakebase_instance}
+          environment_key: default
+          timeout_seconds: 3600
+      max_concurrent_runs: 1
+
+targets:
+  demo:
+    default: true
+    variables:
+      environment: demo
+
+  dev:
+    variables:
+      environment: dev
+
+  staging:
+    variables:
+      environment: staging
+
+  prod:
+    run_as:
+      service_principal_name: coco-service-principal
+    variables:
+      environment: prod
+      unique_id: prd

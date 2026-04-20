@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="thread-page">
+    <div class="thread-header">
+        <div class="thread-title-area">
+            <h2 class="thread-title-text" id="thread-title"
+                onclick="document.getElementById('rename-form').style.display='flex'; this.style.display='none';"
+                title="Click to rename">
+                {{ thread.title or "Untitled Query" }}
+            </h2>
+            <!--
+              Rename submits over HTMX (hx-post) instead of a native form
+              POST so the browser doesn't navigate away. A full navigation
+              tears down any in-flight SSE connection, which cancels the
+              agent mid-query if the user renames while waiting on a
+              response. The handler returns 204 for HX-Request so there's
+              no redirect-follow either.
+            -->
+            <form hx-post="/threads/{{ thread.id }}/rename"
+                  hx-swap="none"
+                  hx-on::after-request="
+                    var t = this.querySelector('input').value.trim() || 'Untitled Query';
+                    var h = document.getElementById('thread-title');
+                    h.textContent = t;
+                    h.style.display = '';
+                    this.style.display = 'none';
+                  "
+                  id="rename-form" class="rename-form" style="display:none">
+                <input type="text" name="title" value="{{ thread.title or '' }}"
+                       class="rename-input" maxlength="100" autofocus
+                       placeholder="Name this cohort query...">
+                <button type="submit" class="btn btn-sm btn-primary">Save</button>
+                <button type="button" class="btn btn-sm btn-ghost"
+                        onclick="this.parentElement.style.display='none'; document.getElementById('thread-title').style.display='';">
+                    Cancel
+                </button>
+            </form>
+        </div>
+        <button class="btn btn-sm btn-danger" type="button"
+                data-modal-open="archive-confirm">Archive</button>
+        <div class="modal-backdrop" id="archive-confirm" hidden>
+            <div class="modal" role="dialog" aria-labelledby="archive-confirm-title" aria-modal="true">
+                <h3 class="modal-title" id="archive-confirm-title">Archive this query?</h3>
+                <p class="modal-body">
+                    It moves to Archived. You can restore it from the
+                    Archived page at any time.
+                </p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-ghost" data-modal-close>Cancel</button>
+                    <form method="post" action="/api/threads/{{ thread.id }}/archive" class="modal-submit">
+                        <button type="submit" class="btn btn-danger">Archive this query</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="message-container" id="message-list">
+        {% for msg in messages %}
+        {% include "_message.html" %}
+        {% endfor %}
+    </div>
+
+    <div class="compose-area">
+        <form hx-post="/threads/{{ thread.id }}/send"
+              hx-target="#message-list"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset(); this.querySelector('textarea').focus();">
+            <textarea name="content" placeholder="Ask a question about the cohort..."
+                      required class="compose-textarea"></textarea>
+            <div class="compose-controls">
+                <span class="compose-hint" aria-hidden="true">
+                    <kbd>&#8984;</kbd> + <kbd>Return</kbd> to send
+                </span>
+                <button type="submit" class="btn btn-primary">Send</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

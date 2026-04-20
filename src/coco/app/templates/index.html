@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2>Cohort Queries</h2>
+        <p class="subtitle">Ask in plain English. CoCo turns it into validated SQL against the RWD tables.</p>
+    </div>
+    <div class="header-actions">
+        <a href="/archived" class="btn btn-sm btn-ghost">Archived</a>
+        <form method="post" action="/threads/new" class="btn-group">
+            <button class="btn btn-primary" type="submit">+ New Query</button>
+        </form>
+    </div>
+</div>
+
+{% if feedback_up or feedback_down %}
+<div class="feedback-summary">
+    <span class="feedback-stat">Last 7 days:</span>
+    <span class="feedback-stat feedback-up">&#x1F44D; {{ feedback_up }}</span>
+    <span class="feedback-stat feedback-down">&#x1F44E; {{ feedback_down }}</span>
+</div>
+{% endif %}
+
+{% if lakebase_status and lakebase_status != "ok" %}
+<div class="banner banner-warn">
+    Session store is unavailable ({{ lakebase_status }}). New threads will not persist until Lakebase is reachable.
+</div>
+{% endif %}
+
+{% if threads %}
+<div class="thread-list">
+    {% for thread in threads %}
+    <a href="/threads/{{ thread.id }}" class="thread-card">
+        <div class="thread-title">
+            {{ thread.title or "Untitled query" }}
+        </div>
+        <div class="thread-meta">
+            {{ thread.updated_at.strftime('%b %d, %H:%M') }}
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="empty-state-icon">&#x1F4AC;</div>
+    <h3>No cohort queries yet</h3>
+    <p>Start by asking CoCo a question about the patient cohort.</p>
+    <form method="post" action="/threads/new" class="btn-group">
+        <button class="btn btn-primary" type="submit">Create your first query</button>
+    </form>
+</div>
+{% endif %}
+{% endblock %}

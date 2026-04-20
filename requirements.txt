@@ -1,0 +1,22 @@
+# Databricks Apps runtime deps for the CoCo FastAPI front-end.
+# Databricks Apps auto-pip-installs whatever is in this file into the
+# app container on every deploy, so keep the list lean — anything the
+# agent needs (mlflow, dspy, databricks-agents, pyarrow, pandas) is
+# installed separately on the jobs cluster and in the Model Serving
+# container, not here.
+#
+# Loose `>=` bounds only. Exact pins collide with Databricks Apps'
+# preinstalled packages and fail with "Error installing packages".
+fastapi>=0.110
+uvicorn[standard]>=0.29
+httpx>=0.27
+psycopg[binary]>=3.2
+psycopg_pool>=3.2
+jinja2>=3.1
+pydantic>=2.5
+pyyaml>=6.0
+databricks-sdk>=0.65  # w.database API requires a recent SDK
+python-jose[cryptography]>=3.3
+sqlparse>=0.5
+markdown-it-py>=3.0
+

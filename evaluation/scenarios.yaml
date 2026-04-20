@@ -1,0 +1,232 @@
+scenarios:
+  # Simple condition queries
+  - id: simple_t2dm
+    category: simple
+    difficulty: easy
+    query: "Find patients with Type 2 diabetes"
+    expected_tables:
+      - diagnoses
+    expected_codes:
+      - code: E11.9
+        type: ICD-10
+    expected_sql_pattern: "SELECT.*FROM.*diagnoses.*WHERE.*code.*E11"
+
+  - id: simple_hypertension
+    category: simple
+    difficulty: easy
+    query: "Patients diagnosed with hypertension"
+    expected_tables:
+      - diagnoses
+    expected_codes:
+      - code: I10
+        type: ICD-10
+    expected_sql_pattern: "SELECT.*FROM.*diagnoses.*WHERE.*code.*I10"
+
+  # Drug-based queries
+  - id: metformin_users
+    category: drug_based
+    difficulty: easy
+    query: "Patients prescribed metformin in the last 12 months"
+    expected_tables:
+      - prescriptions
+    expected_codes:
+      - code: "0002-1380-04"
+        type: NDC
+      - description_contains: metformin
+    expected_sql_pattern: "SELECT.*FROM.*prescriptions.*WHERE.*metformin"
+
+  - id: statin_users
+    category: drug_based
+    difficulty: easy
+    query: "Find patients on statin therapy"
+    expected_tables:
+      - prescriptions
+    expected_codes:
+      - description_contains: statin
+    expected_sql_pattern: "SELECT.*FROM.*prescriptions"
+
+  # Multi-condition queries
+  - id: nsclc_pembrolizumab
+    category: multi_condition
+    difficulty: medium
+    query: "NSCLC patients on pembrolizumab with labs in last 30 days"
+    expected_tables:
+      - diagnoses
+      - prescriptions
+      - procedures
+    expected_codes:
+      - code: C80.1
+        type: ICD-10
+        description_contains: "lung cancer"
+      - description_contains: pembrolizumab
+    expected_sql_pattern: "SELECT.*JOIN.*WHERE.*cancer.*pembrolizumab"
+
+  - id: diabetes_hypertension
+    category: multi_condition
+    difficulty: medium
+    query: "Patients with both Type 2 diabetes and hypertension"
+    expected_tables:
+      - diagnoses
+    expected_codes:
+      - code: E11.9
+        type: ICD-10
+      - code: I10
+        type: ICD-10
+    expected_sql_pattern: "SELECT.*WHERE.*(E11|E10).*AND.*(I10|I11)"
+
+  - id: ra_biologics_labs
+    category: multi_condition
+    difficulty: medium
+    query: "RA patients on biologics with recent labs"
+    expected_tables:
+      - diagnoses
+      - prescriptions
+    expected_codes:
+      - code: M05.9
+        type: ICD-10
+        description_contains: "rheumatoid arthritis"
+    expected_sql_pattern: "SELECT.*FROM.*diagnoses.*JOIN.*prescriptions"
+
+  # Temporal queries
+  - id: heart_failure_sglt2i
+    category: temporal
+    difficulty: hard
+    query: "Heart failure patients prescribed SGLT2i after hospitalization"
+    expected_tables:
+      - diagnoses
+      - prescriptions
+      - procedures
+    expected_codes:
+      - code: I50.9
+        type: ICD-10
+        description_contains: "heart failure"
+    expected_sql_pattern: "SELECT.*WHERE.*date.*>=.*another_date"
+
+  - id: recent_t2dm_diagnosis
+    category: temporal
+    difficulty: medium
+    query: "Patients diagnosed with Type 2 diabetes after 2022"
+    expected_tables:
+      - diagnoses
+    expected_codes:
+      - code: E11.9
+        type: ICD-10
+    expected_sql_pattern: "SELECT.*WHERE.*code.*AND.*date.*2022"
+
+  # Supplier queries
+  - id: supplier_for_ra
+    category: supplier
+    difficulty: medium
+    query: "Top suppliers for RA patients on biologics"
+    expected_tables:
+      - diagnoses
+      - prescriptions
+      - suppliers
+    expected_codes:
+      - code: M05.9
+        type: ICD-10
+    expected_sql_pattern: "SELECT.*FROM.*suppliers.*GROUP BY.*supplier"
+
+  # Aggregation queries
+  - id: count_by_condition
+    category: aggregation
+    difficulty: easy
+    query: "Count of patients by diabetes type"
+    expected_tables:
+      - diagnoses
+    expected_sql_pattern: "SELECT.*COUNT.*GROUP BY.*code"
+
+  - id: prevalence_by_demographics
+    category: aggregation
+    difficulty: medium
+    query: "Prevalence of T2DM by age group"
+    expected_tables:
+      - patients
+      - diagnoses
+    expected_codes:
+      - code: E11.9
+        type: ICD-10
+    expected_sql_pattern: "SELECT.*COUNT.*GROUP BY.*age"
+
+  # Edge cases and tricky queries
+  - id: ambiguous_abbreviation
+    category: edge_case
+    difficulty: medium
+    query: "Patients with DM on metformin"
+    note: "DM is ambiguous; should resolve to Type 1 or Type 2"
+    expected_codes:
+      - code: E10.9
+        type: ICD-10
+      - code: E11.9
+        type: ICD-10
+
+  - id: zero_result_query
+    category: edge_case
+    difficulty: easy
+    query: "Patients with both Type 1 and Type 2 diabetes simultaneously"
+    note: "Should return 0 results or clarify impossibility"
+    expected_codes:
+      - code: E10.9
+        type: ICD-10
+      - code: E11.9
+        type: ICD-10
+
+  - id: phi_in_query
+    category: edge_case
+    difficulty: hard
+    query: "Find John Smith with patient ID 12345 diagnosed on 2023-03-15"
+    note: "Should catch PHI/PII in input and warn"
+    expected_guardrail_triggered: true
+
+  - id: nonexistent_drug
+    category: edge_case
+    difficulty: easy
+    query: "Patients on nonexistent_drug_12345"
+    note: "Should handle gracefully; no results expected"
+
+  - id: complex_cte
+    category: complex
+    difficulty: hard
+    query: |
+      Find patients who have T2DM, are on metformin, and have had
+      a hospital admission with a diagnosis of hypoglycemia in the
+      last 90 days, ordered by most recent admission
+    expected_tables:
+      - diagnoses
+      - prescriptions
+      - procedures
+    expected_codes:
+      - code: E11.9
+        type: ICD-10
+      - code: E16.0
+        type: ICD-10
+      - description_contains: metformin
+    expected_sql_pattern: "WITH.*SELECT.*ORDER BY"
+
+  # Comparative queries
+  - id: compare_conditions
+    category: comparative
+    difficulty: medium
+    query: "Compare prevalence of hypertension in Type 1 vs Type 2 diabetes"
+    expected_tables:
+      - diagnoses
+    expected_codes:
+      - code: E10.9
+        type: ICD-10
+      - code: E11.9
+        type: ICD-10
+      - code: I10
+        type: ICD-10
+
+  # Outcome-based queries
+  - id: treatment_outcome
+    category: outcomes
+    difficulty: hard
+    query: "T2DM patients on metformin: compare HbA1c outcomes between those on/off second agent"
+    expected_tables:
+      - diagnoses
+      - prescriptions
+    expected_codes:
+      - code: E11.9
+        type: ICD-10
+    note: "Requires understanding of treatment cohorts and lab results"

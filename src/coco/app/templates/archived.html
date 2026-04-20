@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2>Archived Queries</h2>
+        <p class="subtitle">Review, restore, or permanently delete archived cohort queries.</p>
+    </div>
+    <a href="/" class="btn btn-sm btn-ghost">&larr; Back to queries</a>
+</div>
+
+{% if threads %}
+<div class="thread-list">
+    {% for thread in threads %}
+    <div class="thread-card archived-card">
+        <div class="thread-info">
+            <div class="thread-title">{{ thread.title or "Untitled query" }}</div>
+            <div class="thread-meta">
+                Archived {{ thread.updated_at.strftime('%b %d, %H:%M') }}
+            </div>
+        </div>
+        <div class="archived-actions">
+            <form method="post" action="/threads/{{ thread.id }}/restore" style="display:inline">
+                <button class="btn btn-sm btn-ghost" type="submit">Restore</button>
+            </form>
+            <form method="post" action="/threads/{{ thread.id }}/delete" style="display:inline"
+                  onsubmit="return confirm('Permanently delete this query? This cannot be undone.')">
+                <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <h3>No archived queries</h3>
+    <p>Queries you archive will appear here for review or permanent deletion.</p>
+    <a href="/" class="btn btn-primary">Back to queries</a>
+</div>
+{% endif %}
+{% endblock %}

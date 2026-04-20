@@ -1,0 +1,26 @@
+command:
+  - python
+  - -m
+  - uvicorn
+  - coco.app.main:app
+  - --app-dir
+  - src
+  - --host
+  - 0.0.0.0
+  - --port
+  - "8000"
+
+env:
+  - name: COCO_CONFIG_PATH
+    value: config/default.yaml
+  - name: COCO_WAREHOUSE_ID
+    valueFrom: warehouse_id
+  - name: COCO_AGENT_ENDPOINT_URL
+    valueFrom: agent_endpoint_url
+  # Namespace-aware catalog and schema so multiple users in the same
+  # workspace don't collide on table names. These are set by the
+  # bundle variables (databricks.yml) which include the unique_id.
+  - name: COCO_CATALOG_NAME
+    value: coco_demo
+  - name: COCO_SCHEMA_NAME
+    value: cohort_builder

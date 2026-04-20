@@ -1,0 +1,52 @@
+{# Fragment returned by POST /threads/{id}/send.
+   Appended to #message-list via hx-swap="beforeend". #}
+
+<div class="message message-user" data-message-id="{{ user_msg.id }}">
+    <div class="message-header">
+        <span class="message-role">You</span>
+        <span class="message-time">{{ user_msg.created_at.strftime('%H:%M') }}</span>
+    </div>
+    <div class="message-content">{{ user_msg.content }}</div>
+</div>
+
+<div class="message message-assistant" data-streaming="1">
+    <div class="message-header">
+        <span class="message-role">Assistant</span>
+        <span class="message-time response-timer" id="resp-timer"></span>
+    </div>
+    <div class="message-content"
+         hx-ext="sse"
+         sse-connect="/threads/{{ thread_id }}/stream"
+         sse-swap="message"
+         sse-close="close"
+         hx-swap="innerHTML">
+        <div class="agent-loading" id="agent-loading">
+            <div class="loading-spinner"></div>
+            <div class="loading-status">Agent is working...</div>
+            <div class="loading-elapsed" id="loading-elapsed">0s</div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var elapsedEl = document.getElementById('loading-elapsed');
+    var timerEl = document.getElementById('resp-timer');
+    var startTime = Date.now();
+
+    var interval = setInterval(function() {
+        var elapsed = Math.round((Date.now() - startTime) / 1000);
+        if (elapsedEl) elapsedEl.textContent = elapsed + 's';
+        if (timerEl) timerEl.textContent = elapsed + 's';
+
+        if (!document.getElementById('agent-loading')) {
+            if (timerEl) timerEl.textContent = elapsed + 's';
+            clearInterval(interval);
+        }
+    }, 1000);
+
+    document.addEventListener('htmx:sseClose', function() {
+        clearInterval(interval);
+    }, {once: true});
+})();
+</script>
