@@ -173,24 +173,7 @@ Things that work today but might bite you in specific conditions. Check [`CHANGE
 
 ## Architecture
 
-```
-User question
-  |
-  v
-Databricks App (FastAPI + HTMX + SSE)
-  |
-  v
-Lakebase -----> Thread/message persistence + feedback
-  |
-  v
-Model Serving (dspy.ReAct agent)
-  |
-  +---> Claude Sonnet 4.6 (FMAPI) -----> Plan + synthesize
-  +---> SQL Warehouse -----> Execute cohort queries
-  +---> Vector Search -----> Clinical knowledge RAG
-  +---> MLflow Prompt Registry -----> Dynamic prompt instructions
-  +---> MLflow -----> Trace every tool call + user attribution
-```
+![CoCo request flow](docs/design/diagrams/request-flow.svg)
 
 The agent uses `dspy.ReAct` with native tool calling. Claude decides which tools to call (inspect_schema, identify_clinical_codes, generate_sql, execute_sql, retrieve_knowledge) based on tool definitions derived from Python function docstrings. No keyword-matched planner, no separate planning prompt. The model IS the planner. Every tool call is decorated with `@mlflow.trace` for full observability.
 
