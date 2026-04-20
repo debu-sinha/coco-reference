@@ -58,6 +58,12 @@ dbutils.widgets.dropdown(
     "delete_vs_endpoint", "NO", ["NO", "YES"], "Delete the shared VS endpoint too?"
 )
 dbutils.widgets.dropdown("delete_catalog", "NO", ["NO", "YES"], "Drop the shared UC catalog too?")
+dbutils.widgets.dropdown(
+    "scan_all_my_deploys",
+    "NO",
+    ["NO", "YES"],
+    "Scan workspace for every CoCo resource I own (all namespaces)?",
+)
 
 catalog = dbutils.widgets.get("catalog")
 schema = dbutils.widgets.get("schema")
@@ -68,6 +74,7 @@ app_name = dbutils.widgets.get("app_name")
 confirm = dbutils.widgets.get("confirm_teardown")
 delete_vs_endpoint = dbutils.widgets.get("delete_vs_endpoint") == "YES"
 delete_catalog = dbutils.widgets.get("delete_catalog") == "YES"
+scan_all = dbutils.widgets.get("scan_all_my_deploys") == "YES"
 
 if confirm != "YES":
     print("Teardown NOT confirmed. Set confirm_teardown=YES to proceed.")
@@ -111,7 +118,90 @@ print(f"  lakebase_instance: {lakebase_instance}")
 print(f"  schema: {catalog}.{schema}")
 print(f"  delete_vs_endpoint (shared): {delete_vs_endpoint}")
 print(f"  delete_catalog (shared): {delete_catalog}")
-print("\n⚠️  TEARDOWN IN PROGRESS...\n")
+print(f"  scan_all_my_deploys: {scan_all}")
+
+# COMMAND ----------
+# Optional workspace scan: when a deployer has run setup multiple times
+# with different unique_id values, the widget-driven list above only
+# catches ONE namespace per invocation. The scan below walks the
+# workspace for every CoCo-prefixed resource whose creator is the
+# current user, and queues each one for deletion. The per-resource
+# cells below iterate over the queued names.
+apps_to_delete = [app_name]
+endpoints_to_delete = [agent_endpoint]
+lakebase_to_delete = [lakebase_instance]
+schemas_to_delete = [schema]
+
+if scan_all:
+    print("\nScanning workspace for CoCo resources owned by this user...")
+
+    def _owned_by_me(obj: object, *owner_fields: str) -> bool:
+        for f in owner_fields:
+            v = getattr(obj, f, None)
+            if v and v == _user_email:
+                return True
+        return False
+
+    try:
+        discovered_apps = [
+            a.name
+            for a in _ws.apps.list()
+            if (a.name or "").startswith("coco-") and _owned_by_me(a, "creator", "owner")
+        ]
+        for a in discovered_apps:
+            if a and a not in apps_to_delete:
+                apps_to_delete.append(a)
+        print(f"  apps: {discovered_apps}")
+    except Exception as e:
+        print(f"  WARN apps scan: {e.__class__.__name__}: {e}")
+
+    try:
+        discovered_endpoints = [
+            e.name
+            for e in _ws.serving_endpoints.list()
+            if (e.name or "").startswith("coco-agent") and _owned_by_me(e, "creator")
+        ]
+        for e in discovered_endpoints:
+            if e and e not in endpoints_to_delete:
+                endpoints_to_delete.append(e)
+        print(f"  endpoints: {discovered_endpoints}")
+    except Exception as e:
+        print(f"  WARN endpoints scan: {e.__class__.__name__}: {e}")
+
+    try:
+        resp = _ws.api_client.do("GET", "/api/2.0/database/instances")
+        discovered_instances = [
+            i.get("name")
+            for i in (resp.get("database_instances") or [])
+            if (i.get("name") or "").startswith("coco-") and i.get("creator") == _user_email
+        ]
+        for i in discovered_instances:
+            if i and i not in lakebase_to_delete:
+                lakebase_to_delete.append(i)
+        print(f"  lakebase: {discovered_instances}")
+    except Exception as e:
+        print(f"  WARN lakebase scan: {e.__class__.__name__}: {e}")
+
+    try:
+        discovered_schemas = [
+            s.name
+            for s in _ws.schemas.list(catalog_name=catalog)
+            if (s.name or "").startswith("cohort_builder") and _owned_by_me(s, "owner")
+        ]
+        for s in discovered_schemas:
+            if s and s not in schemas_to_delete:
+                schemas_to_delete.append(s)
+        print(f"  schemas in {catalog}: {discovered_schemas}")
+    except Exception as e:
+        print(f"  WARN schemas scan: {e.__class__.__name__}: {e}")
+
+    print("\nAfter scan, queued for deletion:")
+    print(f"  apps: {apps_to_delete}")
+    print(f"  endpoints: {endpoints_to_delete}")
+    print(f"  lakebase: {lakebase_to_delete}")
+    print(f"  schemas: {[f'{catalog}.{s}' for s in schemas_to_delete]}")
+
+print("\nTEARDOWN IN PROGRESS...\n")
 
 # COMMAND ----------
 # MAGIC %md
@@ -124,30 +214,32 @@ print("\n⚠️  TEARDOWN IN PROGRESS...\n")
 # COMMAND ----------
 w = _ws
 
-print(f"Deleting Databricks App: {app_name}")
-try:
-    w.apps.delete(name=app_name)
-    print(f"  App '{app_name}' deleted.")
-except Exception as e:
-    if "does not exist" in str(e).lower() or "not found" in str(e).lower():
-        print(f"  App '{app_name}' already gone.")
-    else:
-        print(f"  WARNING: {e.__class__.__name__}: {e}")
+for _app in apps_to_delete:
+    print(f"Deleting Databricks App: {_app}")
+    try:
+        w.apps.delete(name=_app)
+        print(f"  App '{_app}' deleted.")
+    except Exception as e:
+        if "does not exist" in str(e).lower() or "not found" in str(e).lower():
+            print(f"  App '{_app}' already gone.")
+        else:
+            print(f"  WARNING: {e.__class__.__name__}: {e}")
 
 # COMMAND ----------
 # MAGIC %md
 # MAGIC ## 2. Model Serving endpoint
 
 # COMMAND ----------
-print(f"Deleting Model Serving endpoint: {agent_endpoint}")
-try:
-    w.serving_endpoints.delete(agent_endpoint)
-    print(f"  Endpoint '{agent_endpoint}' deleted.")
-except Exception as e:
-    if "does not exist" in str(e).lower() or "RESOURCE_DOES_NOT_EXIST" in str(e):
-        print(f"  Endpoint '{agent_endpoint}' already gone.")
-    else:
-        print(f"  WARNING: {e.__class__.__name__}: {e}")
+for _ep in endpoints_to_delete:
+    print(f"Deleting Model Serving endpoint: {_ep}")
+    try:
+        w.serving_endpoints.delete(_ep)
+        print(f"  Endpoint '{_ep}' deleted.")
+    except Exception as e:
+        if "does not exist" in str(e).lower() or "RESOURCE_DOES_NOT_EXIST" in str(e):
+            print(f"  Endpoint '{_ep}' already gone.")
+        else:
+            print(f"  WARNING: {e.__class__.__name__}: {e}")
 
 # COMMAND ----------
 # MAGIC %md
@@ -157,17 +249,17 @@ except Exception as e:
 # Use REST API path — the `databricks-vectorsearch` Python SDK has a
 # namespace collision with `databricks-sdk` on serverless after kernel
 # restart (same workaround as 00_setup_workspace.py).
-vs_index_name = f"{catalog}.{schema}.coco_knowledge_idx"
-
-print(f"Deleting Vector Search index: {vs_index_name}")
-try:
-    w.api_client.do("DELETE", f"/api/2.0/vector-search/indexes/{vs_index_name}")
-    print(f"  Index '{vs_index_name}' deleted.")
-except Exception as e:
-    if "does not exist" in str(e).lower() or "RESOURCE_DOES_NOT_EXIST" in str(e):
-        print(f"  Index '{vs_index_name}' already gone.")
-    else:
-        print(f"  WARNING: {e.__class__.__name__}: {e}")
+for _schema in schemas_to_delete:
+    vs_index_name = f"{catalog}.{_schema}.coco_knowledge_idx"
+    print(f"Deleting Vector Search index: {vs_index_name}")
+    try:
+        w.api_client.do("DELETE", f"/api/2.0/vector-search/indexes/{vs_index_name}")
+        print(f"  Index '{vs_index_name}' deleted.")
+    except Exception as e:
+        if "does not exist" in str(e).lower() or "RESOURCE_DOES_NOT_EXIST" in str(e):
+            print(f"  Index '{vs_index_name}' already gone.")
+        else:
+            print(f"  WARNING: {e.__class__.__name__}: {e}")
 
 if delete_vs_endpoint:
     print(f"Deleting Vector Search endpoint: {vs_endpoint}")
@@ -191,15 +283,16 @@ else:
 # MAGIC uses for provisioning.
 
 # COMMAND ----------
-print(f"Deleting Lakebase instance: {lakebase_instance}")
-try:
-    w.api_client.do("DELETE", f"/api/2.0/database/instances/{lakebase_instance}")
-    print(f"  Instance '{lakebase_instance}' deletion requested.")
-except Exception as e:
-    if "does not exist" in str(e).lower() or "RESOURCE_DOES_NOT_EXIST" in str(e):
-        print(f"  Instance '{lakebase_instance}' already gone.")
-    else:
-        print(f"  WARNING: {e.__class__.__name__}: {e}")
+for _inst in lakebase_to_delete:
+    print(f"Deleting Lakebase instance: {_inst}")
+    try:
+        w.api_client.do("DELETE", f"/api/2.0/database/instances/{_inst}")
+        print(f"  Instance '{_inst}' deletion requested.")
+    except Exception as e:
+        if "does not exist" in str(e).lower() or "RESOURCE_DOES_NOT_EXIST" in str(e):
+            print(f"  Instance '{_inst}' already gone.")
+        else:
+            print(f"  WARNING: {e.__class__.__name__}: {e}")
 
 # COMMAND ----------
 # MAGIC %md
@@ -295,13 +388,14 @@ from pyspark.sql import SparkSession
 
 spark = SparkSession.builder.appName("CoCo Teardown").getOrCreate()
 
-schema_fqn = f"{catalog}.{schema}"
-print(f"Dropping UC schema: {schema_fqn} CASCADE")
-try:
-    spark.sql(f"DROP SCHEMA IF EXISTS {schema_fqn} CASCADE")
-    print(f"  Schema '{schema_fqn}' and all tables/volumes deleted.")
-except Exception as e:
-    print(f"  WARNING: {e.__class__.__name__}: {e}")
+for _schema in schemas_to_delete:
+    schema_fqn = f"{catalog}.{_schema}"
+    print(f"Dropping UC schema: {schema_fqn} CASCADE")
+    try:
+        spark.sql(f"DROP SCHEMA IF EXISTS {schema_fqn} CASCADE")
+        print(f"  Schema '{schema_fqn}' and all tables/volumes deleted.")
+    except Exception as e:
+        print(f"  WARNING: {e.__class__.__name__}: {e}")
 
 # COMMAND ----------
 # MAGIC %md
