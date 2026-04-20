@@ -54,6 +54,27 @@ router = APIRouter()
 _md = MarkdownIt("commonmark", {"html": False, "linkify": True}).enable("table")
 
 
+# Per-thread asyncio lock registry. Prevents the race where two
+# concurrent /stream connections both read the thread before either
+# persists the assistant reply, slip past the "last message is
+# assistant" guard, and trigger two agent invocations for the same
+# user turn. One replica only; if the App ever scales to multiple
+# replicas, replace with a Postgres advisory lock or a UNIQUE
+# constraint on runs(thread_id, message_id).
+_thread_locks: dict[str, asyncio.Lock] = {}
+_thread_locks_gate = asyncio.Lock()
+
+
+async def _get_thread_lock(thread_id: str) -> asyncio.Lock:
+    """Return (creating if missing) the asyncio.Lock for one thread."""
+    async with _thread_locks_gate:
+        lock = _thread_locks.get(thread_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            _thread_locks[thread_id] = lock
+        return lock
+
+
 def _sse(event: str, data: str) -> str:
     """Format an SSE frame.
 
@@ -205,6 +226,35 @@ async def _agent_sse_stream(
         yield _sse("close", "")
         return
 
+    # Concurrency guard. If another /stream connection for this thread
+    # is already invoking the agent (e.g., HTMX's SSE extension
+    # reconnected mid-invoke, or the browser re-opened the stream),
+    # the Lakebase reconnect-loop guard alone is not enough: it reads
+    # the persisted state, which does not update until the first
+    # invocation finishes 20-40 seconds later. Without this check both
+    # connections slip past the guard and produce two agent calls +
+    # two assistant rows for the same user turn.
+    lock = await _get_thread_lock(str(thread_id))
+    if lock.locked():
+        logger.info(
+            "Concurrent /stream for thread %s; another invocation in progress, emitting close.",
+            thread_id,
+        )
+        yield _sse("close", "")
+        return
+
+    async with lock:
+        async for frame in _invoke_one_turn(thread_id, user_id, db, agent_client):
+            yield frame
+
+
+async def _invoke_one_turn(
+    thread_id: UUID,
+    user_id: str,
+    db: LakebaseClient,
+    agent_client: AgentClient,
+) -> AsyncGenerator[str, None]:
+    """Body of one assistant turn, guaranteed serialized per thread."""
     # Pull history in OpenAI shape for the agent call
     try:
         messages_rows = await get_messages(db, thread_id, limit=100)
