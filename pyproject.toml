@@ -25,8 +25,13 @@ dependencies = [
     "databricks-sdk>=0.30",
     "databricks-vectorsearch>=0.40",
     "databricks-agents>=1.1",
-    "mlflow[databricks]>=3.1",
-    "dspy>=2.5",
+    # mlflow 3.x: pin to <4.0 because 4.0 is expected to restructure genai APIs
+    # (prompt registry, optimize_prompts, scorer decorators) that this repo uses
+    # directly. Revisit when 4.0 ships.
+    "mlflow[databricks]>=3.1,<4.0",
+    # dspy: pin <3.2 per setup notebook's %pip pin. 3.2 introduced a tracer
+    # API change that the Mosaic AI Agent Framework deploy hasn't caught up to.
+    "dspy>=2.5,<3.2",
     "pyarrow>=16",
     "pandas>=2.2",
     "sqlparse>=0.5",

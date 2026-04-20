@@ -11,7 +11,7 @@ This repo is a **turnkey reference implementation**. Clone it, deploy the bundle
 You'll need these before you start:
 
 - A Databricks workspace with **Unity Catalog** and **Model Serving**
-- An **existing serverless SQL warehouse** (the setup job doesn't create one). Find the warehouse ID on the SQL Warehouses page (hex string in the URL). If you don't have one, ask your workspace admin to create a serverless warehouse.
+- An **existing serverless SQL warehouse** (the setup job doesn't create one). To find the warehouse ID: **SQL → SQL Warehouses → click your warehouse → copy the 16-char hex from the URL** (e.g. `https://<workspace>/sql/warehouses/abc123def456789` → warehouse_id is `abc123def456789`). If you don't have one, ask your workspace admin to create a serverless warehouse (Small is enough for cohort queries).
 - An **existing Unity Catalog catalog** where you have CREATE SCHEMA permission. The setup job can't create catalogs on Default Storage workspaces. Run the preflight script (below) to find one you can use.
 - `databricks-claude-sonnet-4-6` (or equivalent) **FMAPI endpoint** available in your workspace
 - **Databricks CLI** installed and a profile configured (`databricks auth login`)
@@ -146,6 +146,16 @@ Shared resources stay intact by default. The teardown never drops the UC catalog
 | `error downloading Terraform: openpgp: key expired` on `databricks bundle deploy` | Older Databricks CLI ships with an expired GPG-signing key for its embedded Terraform download | Install Terraform locally (`curl -sSL https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_$(uname -s | tr A-Z a-z)_$(uname -m).zip -o /tmp/tf.zip && unzip /tmp/tf.zip -d ~/bin/ && chmod +x ~/bin/terraform`). Then `export DATABRICKS_TF_EXEC_PATH=~/bin/terraform DATABRICKS_TF_VERSION=1.9.8` before running bundle commands. |
 
 For the full permissions checklist, see [`docs/PERMISSIONS.md`](docs/PERMISSIONS.md).
+
+### Known issues
+
+Things that work today but might bite you in specific conditions. Check [`CHANGELOG.md`](CHANGELOG.md) for the list of what's validated end-to-end.
+
+- **Lakebase credential rotation.** Tokens are minted on demand with a ~1h TTL and the pool rotates at 55 minutes. If Databricks changes the TTL, the pool will hit auth errors on the next query. We don't poll or log credential health. See [`src/coco/app/sessions/lakebase.py`](src/coco/app/sessions/lakebase.py).
+- **Prompt Registry flag can be disabled after deploy.** The preflight script catches it before setup, but nothing checks it at request time. If an admin flips the flag off post-deploy, `load_prompt` falls back to bundled DEFAULTS silently. See [`src/coco/agent/prompts/__init__.py`](src/coco/agent/prompts/__init__.py).
+- **Agent endpoint cold starts.** Scale-to-zero is on by default. First request after idle can take 30-60 seconds while the container warms. The app doesn't queue or show a dedicated "waking up" state — the user sees the standard "agent is thinking" spinner.
+- **LLM-as-judge scorers use `asyncio.run`.** `response_relevance_scorer` and `phi_leak_scorer` in [`src/coco/observability/scorers.py`](src/coco/observability/scorers.py) spin an event loop. They worked in fevm2 evaluation but treat them as lower-confidence than the code scorers.
+- **Vector Search index takes a few minutes to go live** after `setup_workspace` creates it. The agent's `retrieve_knowledge` tool returns empty results until the index finishes syncing. Setup waits but does not gate on index-ready.
 
 ## Architecture
 
