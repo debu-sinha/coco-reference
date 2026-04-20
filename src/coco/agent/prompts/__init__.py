@@ -92,8 +92,22 @@ def register_defaults() -> dict[str, str]:
     """
     import mlflow.genai
 
+    # Invalidate the config cache before resolving registry names. The
+    # notebook path that calls this sets COCO_CATALOG_NAME /
+    # COCO_SCHEMA_NAME just before the call, but if any earlier import
+    # already called get_config(), the cached value carries empty
+    # catalog/schema fields. Force a re-read so the registry_name lookup
+    # below picks up the live env vars.
+    try:
+        import coco.config as _cfg_mod
+
+        _cfg_mod._cached_config = None
+    except Exception:
+        pass
+
     registered: dict[str, str] = {}
     errors: list[str] = []
+    skipped_no_config: list[str] = []
     for prompt_name, template in DEFAULTS.items():
         registry_name = _registry_name(prompt_name)
         if not registry_name:
@@ -102,6 +116,7 @@ def register_defaults() -> dict[str, str]:
                 "(set COCO_CATALOG_NAME and COCO_SCHEMA_NAME).",
                 prompt_name,
             )
+            skipped_no_config.append(prompt_name)
             continue
         try:
             prompt_obj = mlflow.genai.register_prompt(name=registry_name, template=template)
@@ -145,6 +160,22 @@ def register_defaults() -> dict[str, str]:
             "Fix: enable the 'Managed MLflow Prompt Registry' preview feature "
             "under workspace Settings > Preview features, then re-run setup. "
             "Run scripts/preflight_check.py to verify before re-running."
+        )
+
+    # Hard-fail when every prompt was silently skipped for missing config.
+    # Previously this path returned an empty dict and the notebook printed
+    # "0 prompts registered" without raising, so setup finished SUCCESS
+    # with no @production aliases in the registry. The agent then fell
+    # back to the hardcoded DEFAULTS on every request, and the optimize
+    # notebook failed because there was no registered prompt to re-version.
+    if skipped_no_config and not registered:
+        raise RuntimeError(
+            f"register_defaults() skipped every prompt ({len(skipped_no_config)}) "
+            f"because COCO_CATALOG_NAME / COCO_SCHEMA_NAME were not resolvable from "
+            f"config. This usually means get_config() cached an empty catalog.schema "
+            f"before the setup notebook set the env vars. Fix: ensure "
+            f"os.environ['COCO_CATALOG_NAME'] and os.environ['COCO_SCHEMA_NAME'] are "
+            f"set BEFORE the first import of coco.config or coco.agent.prompts."
         )
     return registered
 
