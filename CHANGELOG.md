@@ -13,7 +13,7 @@ Validated on a fresh Databricks workspace from a `git clone`:
 - `bundle run setup_workspace` completes in ~18 minutes and provisions UC schema + synthetic data + Vector Search + Lakebase + Prompt Registry + agent endpoint + app
 - `bundle run run_evaluation` scores 19 scenarios against the live agent, writes traces to the per-user MLflow experiment
 - `bundle run optimize_dspy` runs GEPA through `mlflow.genai.optimize_prompts`, registers a new prompt version, flips `@production`
-- `bundle run teardown_workspace` removes every per-user resource and leaves shared resources (catalog, optional VS endpoint) untouched
+- `bundle run teardown_workspace` removes every per-user resource and leaves shared resources (catalog, optional VS endpoint) untouched. Widget `scan_all_my_deploys=YES` extends the walk to every CoCo resource whose creator/owner is the current user, covering multi-namespace cleanup.
 
 ### Architecture highlights
 

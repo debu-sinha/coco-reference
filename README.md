@@ -144,6 +144,8 @@ databricks bundle run teardown_workspace -t demo -p PROFILE \
 
 Shared resources stay intact by default. The teardown never drops the UC catalog or the shared Vector Search endpoint unless you explicitly pass `--var delete_catalog=YES` or `--var delete_vs_endpoint=YES`. Two users running teardown at the same time touch disjoint namespaced resources and cannot interfere with each other. The script is idempotent, so a partial teardown is safe to re-run.
 
+**Cleaning up multiple deploys at once.** If you deployed with several `unique_id` values (for example, `dev`, then later `ds`), one teardown invocation only handles the namespace matching the current vars. Flip the notebook widget `scan_all_my_deploys` to `YES` to scan the workspace for every CoCo app, serving endpoint, Lakebase instance, and `cohort_builder_*` schema whose creator/owner is the current user. Matches are merged with the widget-driven list and torn down together. Run it from the notebook UI (the CLI `bundle run` command uses the bundle's `base_parameters`, which keep `scan_all_my_deploys=NO`).
+
 ### Troubleshooting
 
 | Problem | Cause | Fix |
