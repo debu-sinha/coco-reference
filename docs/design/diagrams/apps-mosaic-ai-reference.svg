@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="626.8" viewBox="60 0 1060 626.8">
+<defs><marker id="arrow-1b1b1f" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#1b1b1f" /></marker><marker id="arrow-868e96" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#868e96" /></marker><style>text { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }</style></defs>
+<text x="260" y="48" font-size="28" fill="#1b1b1f">CoCo — Apps + Mosaic AI reference</text>
+<text x="240" y="86" font-size="16" fill="#868e96">one request: browser to App to agent to three tool surfaces</text>
+<rect x="480" y="120" width="240" height="60" rx="8" stroke="#1b1b1f" fill="#fff4e6" stroke-width="1" />
+<text x="600" y="150" font-size="16" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">User browser</text>
+<rect x="400" y="220" width="400" height="80" rx="8" stroke="#1b1b1f" fill="#d0ebff" stroke-width="1" />
+<text x="600" y="260" font-size="16" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">Databricks App (FastAPI)
+X-Forwarded-Email auth</text>
+<rect x="840" y="220" width="260" height="80" rx="8" stroke="#1b1b1f" fill="#fff9db" stroke-width="1" />
+<text x="970" y="260" font-size="13" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">Lakebase Postgres
+threads / messages / runs / feedback</text>
+<rect x="400" y="340" width="400" height="80" rx="8" stroke="#1b1b1f" fill="#d3f9d8" stroke-width="1" />
+<text x="600" y="380" font-size="16" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">CocoAgent
+DSPy ReAct (max_turns=10)</text>
+<rect x="840" y="340" width="260" height="80" rx="8" stroke="#1b1b1f" fill="#e5dbff" stroke-width="1" />
+<text x="970" y="380" font-size="15" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">MLflow experiment
+spans + traces</text>
+<rect x="80" y="480" width="260" height="90" rx="8" stroke="#1b1b1f" fill="#ffdeeb" stroke-width="1" />
+<text x="210" y="525" font-size="14" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">Mosaic AI Gateway
+route: coco-llm
+(Claude Sonnet 4.5)</text>
+<rect x="400" y="480" width="360" height="90" rx="8" stroke="#1b1b1f" fill="#ffdeeb" stroke-width="1" />
+<text x="580" y="525" font-size="14" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">Unity Catalog SQL
+Statement Execution API
++ serverless warehouse</text>
+<rect x="820" y="480" width="280" height="90" rx="8" stroke="#1b1b1f" fill="#ffdeeb" stroke-width="1" />
+<text x="960" y="525" font-size="14" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">Databricks Vector Search
+coco_knowledge_idx
+(BM25 + BGE hybrid)</text>
+<path d="M 600 180 L 600 218" stroke="#1b1b1f" fill="none" stroke-width="1" marker-end="url(#arrow-1b1b1f)" />
+<path d="M 800 260 L 840 260" stroke="#1b1b1f" fill="none" stroke-width="1" marker-end="url(#arrow-1b1b1f)" />
+<path d="M 600 300 L 600 340" stroke="#1b1b1f" fill="none" stroke-width="1" marker-end="url(#arrow-1b1b1f)" />
+<path d="M 800 380 L 840 380" stroke="#868e96" fill="none" stroke-width="1" marker-end="url(#arrow-868e96)" />
+<path d="M 500 420 L 210 478" stroke="#1b1b1f" fill="none" stroke-width="1" marker-end="url(#arrow-1b1b1f)" />
+<path d="M 600 420 L 580 478" stroke="#1b1b1f" fill="none" stroke-width="1" marker-end="url(#arrow-1b1b1f)" />
+<path d="M 700 420 L 950 478" stroke="#1b1b1f" fill="none" stroke-width="1" marker-end="url(#arrow-1b1b1f)" />
+<text x="80" y="602" font-size="12" fill="#868e96">every LLM call (planner + synthesizer)</text>
+<text x="400" y="602" font-size="12" fill="#868e96">guardrails: read-only + schema allowlist</text>
+<text x="820" y="602" font-size="12" fill="#868e96">clinical-knowledge RAG tool</text>
+</svg>

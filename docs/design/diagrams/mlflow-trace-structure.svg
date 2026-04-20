@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="570" viewBox="80 0 1120 570">
+<defs><marker id="arrow-1b1b1f" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#1b1b1f" /></marker><marker id="arrow-868e96" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#868e96" /></marker><style>text { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }</style></defs>
+<text x="320" y="48" font-size="28" fill="#1b1b1f">CoCo — MLflow trace structure</text>
+<text x="180" y="85" font-size="15" fill="#868e96">one agent invocation as a span tree (mlflow.dspy.autolog adds LM sub-spans)</text>
+<rect x="100" y="120" width="1080" height="60" rx="8" stroke="#1b1b1f" fill="#fff4e6" stroke-width="1" />
+<text x="640" y="150" font-size="16" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">agent_turn  (root span, one per user message)</text>
+<rect x="100" y="240" width="170" height="70" rx="8" stroke="#1b1b1f" fill="#d0ebff" stroke-width="1" />
+<text x="185" y="275" font-size="13" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">plan_action</text>
+<rect x="280" y="240" width="170" height="70" rx="8" stroke="#1b1b1f" fill="#d3f9d8" stroke-width="1" />
+<text x="365" y="275" font-size="13" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">tool_clinical_codes</text>
+<rect x="460" y="240" width="170" height="70" rx="8" stroke="#1b1b1f" fill="#d3f9d8" stroke-width="1" />
+<text x="545" y="275" font-size="13" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">tool_sql_generator</text>
+<rect x="640" y="240" width="170" height="70" rx="8" stroke="#1b1b1f" fill="#d3f9d8" stroke-width="1" />
+<text x="725" y="275" font-size="13" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">tool_sql_executor</text>
+<rect x="820" y="240" width="170" height="70" rx="8" stroke="#1b1b1f" fill="#d3f9d8" stroke-width="1" />
+<text x="905" y="275" font-size="13" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">tool_knowledge_rag</text>
+<rect x="1000" y="240" width="180" height="70" rx="8" stroke="#1b1b1f" fill="#ffdeeb" stroke-width="1" />
+<text x="1090" y="275" font-size="13" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">synthesize_response</text>
+<path d="M 185 180 L 185 238" stroke="#1b1b1f" fill="none" stroke-width="1" marker-end="url(#arrow-1b1b1f)" />
+<path d="M 365 180 L 365 238" stroke="#1b1b1f" fill="none" stroke-width="1" marker-end="url(#arrow-1b1b1f)" />
+<path d="M 545 180 L 545 238" stroke="#1b1b1f" fill="none" stroke-width="1" marker-end="url(#arrow-1b1b1f)" />
+<path d="M 725 180 L 725 238" stroke="#1b1b1f" fill="none" stroke-width="1" marker-end="url(#arrow-1b1b1f)" />
+<path d="M 905 180 L 905 238" stroke="#1b1b1f" fill="none" stroke-width="1" marker-end="url(#arrow-1b1b1f)" />
+<path d="M 1090 180 L 1090 238" stroke="#1b1b1f" fill="none" stroke-width="1" marker-end="url(#arrow-1b1b1f)" />
+<rect x="120" y="340" width="130" height="50" rx="8" stroke="#1b1b1f" fill="#e5dbff" stroke-width="1" />
+<text x="185" y="365" font-size="12" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">LM call</text>
+<rect x="300" y="340" width="130" height="50" rx="8" stroke="#1b1b1f" fill="#e5dbff" stroke-width="1" />
+<text x="365" y="365" font-size="12" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">LM call</text>
+<rect x="480" y="340" width="130" height="50" rx="8" stroke="#1b1b1f" fill="#e5dbff" stroke-width="1" />
+<text x="545" y="365" font-size="12" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">LM call</text>
+<rect x="660" y="340" width="130" height="50" rx="8" stroke="#1b1b1f" fill="#e5dbff" stroke-width="1" />
+<text x="725" y="365" font-size="12" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">LM call</text>
+<rect x="840" y="340" width="130" height="50" rx="8" stroke="#1b1b1f" fill="#e5dbff" stroke-width="1" />
+<text x="905" y="365" font-size="12" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">LM call</text>
+<rect x="1020" y="340" width="140" height="50" rx="8" stroke="#1b1b1f" fill="#e5dbff" stroke-width="1" />
+<text x="1090" y="365" font-size="12" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">LM call</text>
+<path d="M 185 310 L 185 340" stroke="#868e96" fill="none" stroke-width="1" marker-end="url(#arrow-868e96)" />
+<path d="M 365 310 L 365 340" stroke="#868e96" fill="none" stroke-width="1" marker-end="url(#arrow-868e96)" />
+<path d="M 545 310 L 545 340" stroke="#868e96" fill="none" stroke-width="1" marker-end="url(#arrow-868e96)" />
+<path d="M 725 310 L 725 340" stroke="#868e96" fill="none" stroke-width="1" marker-end="url(#arrow-868e96)" />
+<path d="M 905 310 L 905 340" stroke="#868e96" fill="none" stroke-width="1" marker-end="url(#arrow-868e96)" />
+<path d="M 1090 310 L 1090 340" stroke="#868e96" fill="none" stroke-width="1" marker-end="url(#arrow-868e96)" />
+<text x="280" y="423" font-size="13" fill="#868e96">mlflow.dspy.autolog() attaches one LM sub-span per DSPy module call</text>
+<rect x="100" y="470" width="500" height="80" rx="8" stroke="#1b1b1f" fill="#fff9db" stroke-width="1" />
+<text x="350" y="510" font-size="15" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">4 scorers in notebooks/02_evaluate.py
+read spans + trace metadata</text>
+<rect x="680" y="470" width="500" height="80" rx="8" stroke="#1b1b1f" fill="#fff9db" stroke-width="1" />
+<text x="930" y="510" font-size="15" fill="#1b1b1f" text-anchor="middle" dominant-baseline="central">optimize_prompts (GEPA)
+pulls +1 feedback, promotes @production</text>
+<path d="M 350 468 L 350 182" stroke="#868e96" fill="none" stroke-width="1" marker-end="url(#arrow-868e96)" />
+<path d="M 930 468 L 930 182" stroke="#868e96" fill="none" stroke-width="1" marker-end="url(#arrow-868e96)" />
+</svg>
