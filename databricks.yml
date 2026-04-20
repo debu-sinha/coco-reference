@@ -145,7 +145,12 @@ resources:
       display_name: CoCo Cost Attribution (${var.unique_id})
       file_path: ./docs/cost-attribution/coco_cost_attribution.lvdash.json
       warehouse_id: ${var.warehouse_id}
-      parent_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}/dashboards
+      # parent_path must exist before the bundle Terraform apply runs.
+      # Pointing at the bundle's own workspace root (auto-created by
+      # `bundle deploy` itself) avoids the "Path doesn't exist" error
+      # that every first-time deployer hits on the nested dashboards/
+      # subfolder.
+      parent_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}/files
 
 targets:
   demo:
