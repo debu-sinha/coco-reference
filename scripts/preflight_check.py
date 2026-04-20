@@ -188,11 +188,13 @@ def main() -> int:
             ok(f"Catalog '{args.catalog}' exists")
             catalog_exists = True
         else:
-            warn(
-                f"Catalog '{args.catalog}' does not exist. "
-                f"The setup job will try to create it. If that fails "
-                f"(Default Storage workspace), create it via the UI first.\n"
-                f"         Available catalogs: {', '.join(c for c in catalogs if c not in ('system', 'samples'))}"
+            avail = ", ".join(c for c in catalogs if c not in ("system", "samples"))
+            fail(
+                f"Catalog '{args.catalog}' does not exist. The setup job's CREATE CATALOG "
+                f"will fail on any workspace with Default Storage enabled (most new "
+                f"workspaces). Either pre-create the catalog in the UI, or re-run the "
+                f"bundle deploy with --var catalog=<existing-name>.\n"
+                f"         Available catalogs: {avail}"
             )
     except Exception as e:
         fail(f"Cannot list catalogs: {e}")

@@ -320,21 +320,29 @@ else:
         spark.sql(f"CREATE CATALOG {catalog}")
         print(f"Catalog '{catalog}' created (via SQL).")
     except Exception as cat_err:
-        if "storage root URL" in str(cat_err) or "Default Storage" in str(cat_err):
+        err_str = str(cat_err)
+        is_default_storage = "storage root URL" in err_str or "Default Storage" in err_str
+        if is_default_storage:
+            # Try SDK path. On Default Storage this usually also fails,
+            # but worth a shot on workspaces with a configured fallback.
             try:
                 _ws.catalogs.create(name=catalog, comment="CoCo cohort copilot data")
                 print(f"Catalog '{catalog}' created (via SDK).")
-            except Exception as sdk_err:
+            except Exception:
                 avail = ", ".join(c for c in _existing_catalogs if c not in ("system", "samples"))
-                print(
-                    f"\nERROR: Could not create catalog '{catalog}'.\n\n"
-                    f"On Default Storage workspaces, create the catalog via the UI:\n"
-                    f"  Catalog > + > Create a new catalog > name it '{catalog}'\n\n"
-                    f"Or use an existing catalog by re-running with:\n"
-                    f"  --var catalog=<existing-catalog-name>\n\n"
-                    f"Available catalogs: {avail}"
+                msg = (
+                    f"Catalog '{catalog}' does not exist and cannot be auto-created on this "
+                    f"workspace (Default Storage is enabled, so CREATE CATALOG needs an "
+                    f"explicit MANAGED LOCATION).\n\n"
+                    f"Fix one of two ways:\n\n"
+                    f"1. Pre-create the catalog in the UI, then re-run the job:\n"
+                    f"   Catalog > + > Create catalog > name it '{catalog}'\n\n"
+                    f"2. Re-deploy the bundle pointing at an existing catalog you have "
+                    f"CREATE SCHEMA on:\n"
+                    f"   databricks bundle deploy -t demo -p <profile> --var catalog=<name>\n\n"
+                    f"Available catalogs on this workspace: {avail}"
                 )
-                raise sdk_err
+                raise RuntimeError(msg) from None
         else:
             raise cat_err
 
