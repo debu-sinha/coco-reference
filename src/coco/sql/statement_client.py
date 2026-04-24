@@ -65,7 +65,9 @@ class StatementClient:
         # Warehouse ID
         self.warehouse_id = warehouse_id or config.sql_warehouse.id
         if not self.warehouse_id:
-            raise ValueError("warehouse_id required; set COCO_WAREHOUSE_ID or pass explicitly")
+            raise ValueError(
+                "warehouse_id required; set COCO_WAREHOUSE_ID or pass explicitly"
+            )
 
         # Workspace host and token
         workspace_host = config.workspace.host
@@ -129,13 +131,21 @@ class StatementClient:
 
         # Prepend a SQL comment with user_id + thread_id so every row in
         # system.query.history.statement_text carries the attribution
-        # needed to split warehouse cost by user. Safe no-op in tests:
-        # falls back to "unknown" when no user context is set.
+        # needed to split warehouse cost by user in the Cost Attribution
+        # dashboard. Always emit the prefix — even for service-principal
+        # or direct /invocations calls where the user context hasn't been
+        # set — so the dashboard's coco_top_sql_queries query catches
+        # every CoCo-originated SQL statement. When context is unknown,
+        # fall back to 'sp' (service principal) so the rows remain
+        # distinguishable from real user traffic.
         from coco.observability.user_context import get_user_context
 
         uid, tid = get_user_context()
-        if uid != "unknown" or tid != "unknown":
-            sql = f"/* coco_user_id={uid}, coco_thread_id={tid} */\n{sql}"
+        if uid == "unknown":
+            uid = "sp"
+        if tid == "unknown":
+            tid = "sp"
+        sql = f"/* coco_user_id={uid}, coco_thread_id={tid} */\n{sql}"
 
         url = f"{self.api_base}/statements"
 
@@ -236,7 +246,9 @@ class StatementClient:
                 # Check for failure
                 if status == StatementStatus.FAILED:
                     error_msg = (
-                        data.get("status", {}).get("error", {}).get("message", "Unknown error")
+                        data.get("status", {})
+                        .get("error", {})
+                        .get("message", "Unknown error")
                     )
                     raise StatementFailed(
                         statement_id=statement_id,
@@ -306,7 +318,9 @@ class StatementClient:
 
         if status_str != "SUCCEEDED":
             error_msg = (
-                data.get("status", {}).get("error", {}).get("message", f"Status is {status_str}")
+                data.get("status", {})
+                .get("error", {})
+                .get("message", f"Status is {status_str}")
             )
             raise StatementFailed(
                 statement_id=statement_id,

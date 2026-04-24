@@ -1,430 +1,625 @@
 {
   "datasets": [
     {
-      "name": "dbu_by_workload",
-      "displayName": "Spend by workload",
+      "name": "coco_total_spend",
+      "displayName": "Total CoCo spend",
       "queryLines": [
-        "-- DBU spend grouped by the `workload` tag.\n",
+        "-- Widget 1: Total CoCo spend (single number tile).\n",
         "--\n",
-        "-- The single most important attribution view. Answers \"how much\n",
-        "-- did CoCo cost this month\" across every compute type (clusters,\n",
-        "-- warehouses, jobs, serving endpoints) in one SELECT.\n",
+        "-- Answers \"what did my CoCo deployment cost me?\" in one USD figure.\n",
+        "-- Scoped strictly to the current deployment via the :unique_id\n",
+        "-- dashboard parameter; defaults to the bundle's var.unique_id so\n",
+        "-- each attendee sees only their own spend after `bundle deploy`.\n",
         "--\n",
-        "-- Reads from `system.billing.usage` which requires system tables\n",
-        "-- enablement on the account. See the Databricks docs for\n",
-        "-- enabling system tables if `relation does not exist` fires.\n",
+        "-- Pass :unique_id = 'all' to aggregate across every coco-* resource\n",
+        "-- visible to this workspace (instructor / admin view).\n",
         "--\n",
-        "-- Default window: last 30 days. Adjust the DATE_SUB if you need\n",
-        "-- a longer baseline or a narrower drill-down. The grouping is by\n",
-        "-- workload first, then by compute type, so each row answers \"how\n",
-        "-- much did the <workload> spend on <compute type>\".\n",
+        "-- Data sources: system.billing.usage + system.billing.list_prices.\n",
+        "-- No custom tables, no hardcoded ids.\n",
         "\n",
-        "SELECT\n",
-        "    usage.custom_tags.workload                         AS workload,\n",
-        "    usage.custom_tags.team                             AS team,\n",
-        "    usage.custom_tags.env                              AS env,\n",
-        "    usage.billing_origin_product                       AS product,\n",
-        "    usage.sku_name                                     AS sku,\n",
-        "    SUM(usage.usage_quantity)                          AS dbu_consumed,\n",
-        "    -- list_price.default is the on-demand DBU rate for the SKU.\n",
-        "    -- For a rough dollar estimate multiply DBU by that rate.\n",
-        "    -- For exact billing, join against system.billing.list_prices\n",
-        "    -- separately on sku_name and the usage date.\n",
-        "    ROUND(SUM(usage.usage_quantity * COALESCE(list.pricing.default, 0)), 2) AS approx_usd\n",
-        "FROM system.billing.usage AS usage\n",
-        "LEFT JOIN system.billing.list_prices AS list\n",
-        "    ON usage.sku_name = list.sku_name\n",
-        "    AND usage.cloud = list.cloud\n",
-        "    AND usage.usage_start_time >= list.price_start_time\n",
-        "    AND (list.price_end_time IS NULL OR usage.usage_start_time < list.price_end_time)\n",
-        "WHERE\n",
-        "    usage.usage_date >= DATE_SUB(CURRENT_DATE(), 30)\n",
-        "    AND usage.custom_tags.workload IS NOT NULL\n",
-        "    -- To include everything (including the unattributed bucket),\n",
-        "    -- delete the line above and the grouping will pick up NULL\n",
-        "    -- as a workload value. Leaving it in focuses the view on\n",
-        "    -- tagged workloads only.\n",
-        "GROUP BY\n",
-        "    usage.custom_tags.workload,\n",
-        "    usage.custom_tags.team,\n",
-        "    usage.custom_tags.env,\n",
-        "    usage.billing_origin_product,\n",
-        "    usage.sku_name\n",
-        "ORDER BY approx_usd DESC NULLS LAST;\n"
-      ]
-    },
-    {
-      "name": "dbu_timeseries",
-      "displayName": "Daily spend time series",
-      "queryLines": [
-        "-- Daily DBU spend time series per workload tag.\n",
-        "--\n",
-        "-- The base view for any \"are we trending up or down\" conversation\n",
-        "-- and for week-over-week chargeback reporting.\n",
-        "--\n",
-        "-- One row per (usage_date, workload) tuple. A dashboard widget\n",
-        "-- that plots this as a stacked bar chart with `workload` on the\n",
-        "-- color axis gives the RWDS team a clean \"cost per day per\n",
-        "-- workload\" view in one glance.\n",
-        "--\n",
-        "-- Default window: 90 days. Adjust as needed for longer baselines.\n",
-        "\n",
-        "SELECT\n",
-        "    usage.usage_date                                   AS day,\n",
-        "    usage.custom_tags.workload                         AS workload,\n",
-        "    usage.custom_tags.env                              AS env,\n",
-        "    SUM(usage.usage_quantity)                          AS dbu_consumed,\n",
-        "    ROUND(SUM(usage.usage_quantity * COALESCE(list.pricing.default, 0)), 2) AS approx_usd\n",
-        "FROM system.billing.usage AS usage\n",
-        "LEFT JOIN system.billing.list_prices AS list\n",
-        "    ON usage.sku_name = list.sku_name\n",
-        "    AND usage.cloud = list.cloud\n",
-        "    AND usage.usage_start_time >= list.price_start_time\n",
-        "    AND (list.price_end_time IS NULL OR usage.usage_start_time < list.price_end_time)\n",
-        "WHERE\n",
-        "    usage.usage_date >= DATE_SUB(CURRENT_DATE(), 90)\n",
-        "    AND usage.custom_tags.workload IS NOT NULL\n",
-        "GROUP BY\n",
-        "    usage.usage_date,\n",
-        "    usage.custom_tags.workload,\n",
-        "    usage.custom_tags.env\n",
-        "ORDER BY day ASC, workload ASC;\n"
-      ]
-    },
-    {
-      "name": "cost_spikes",
-      "displayName": "Cost spike alerts",
-      "queryLines": [
-        "-- Day-over-day cost spikes per workload.\n",
-        "--\n",
-        "-- Flags days where a workload's DBU spend jumped by more than\n",
-        "-- a threshold percentage compared to its 7-day trailing average.\n",
-        "-- Useful as an \"alert\" widget on a dashboard, not as a hard\n",
-        "-- budget alert (those live in the account console).\n",
-        "--\n",
-        "-- Less useful on day 1 with no history. Once a workload has\n",
-        "-- been tagged for 2+ weeks, this view surfaces new cost patterns\n",
-        "-- (e.g. \"someone added a cross-join on Tuesday night\") before\n",
-        "-- they compound over a full billing cycle.\n",
-        "--\n",
-        "-- Default threshold: 50% increase vs. the trailing 7-day mean.\n",
-        "-- Change the WHERE clause to tune sensitivity.\n",
-        "\n",
-        "WITH daily AS (\n",
-        "    SELECT\n",
-        "        usage.usage_date                             AS day,\n",
-        "        usage.custom_tags.workload                   AS workload,\n",
-        "        SUM(usage.usage_quantity)                    AS dbu\n",
-        "    FROM system.billing.usage AS usage\n",
-        "    WHERE usage.usage_date >= DATE_SUB(CURRENT_DATE(), 60)\n",
-        "        AND usage.custom_tags.workload IS NOT NULL\n",
-        "    GROUP BY usage.usage_date, usage.custom_tags.workload\n",
-        "),\n",
-        "windowed AS (\n",
-        "    SELECT\n",
-        "        day,\n",
-        "        workload,\n",
-        "        dbu,\n",
-        "        AVG(dbu) OVER (\n",
-        "            PARTITION BY workload\n",
-        "            ORDER BY day\n",
-        "            ROWS BETWEEN 7 PRECEDING AND 1 PRECEDING\n",
-        "        )                                            AS trailing_7d_mean,\n",
-        "        LAG(dbu, 1) OVER (\n",
-        "            PARTITION BY workload\n",
-        "            ORDER BY day\n",
-        "        )                                            AS prev_day_dbu\n",
-        "    FROM daily\n",
-        ")\n",
-        "SELECT\n",
-        "    day,\n",
-        "    workload,\n",
-        "    ROUND(dbu, 2)                                    AS dbu,\n",
-        "    ROUND(trailing_7d_mean, 2)                       AS trailing_7d_mean,\n",
-        "    ROUND(prev_day_dbu, 2)                           AS prev_day_dbu,\n",
-        "    ROUND(\n",
-        "        (dbu - trailing_7d_mean) / NULLIF(trailing_7d_mean, 0) * 100,\n",
-        "        1\n",
-        "    )                                                AS pct_increase_vs_7d\n",
-        "FROM windowed\n",
-        "WHERE\n",
-        "    trailing_7d_mean IS NOT NULL\n",
-        "    AND trailing_7d_mean > 0\n",
-        "    -- Only flag if the workload spent at least a meaningful\n",
-        "    -- baseline. Without this, a workload that spent 0.01 DBU\n",
-        "    -- yesterday and 0.03 today shows as a 200% spike, which is\n",
-        "    -- noise.\n",
-        "    AND trailing_7d_mean > 1.0\n",
-        "    AND (dbu - trailing_7d_mean) / trailing_7d_mean > 0.5\n",
-        "ORDER BY pct_increase_vs_7d DESC;\n"
-      ]
-    },
-    {
-      "name": "serving_endpoint_cost",
-      "displayName": "Per-endpoint serving cost",
-      "queryLines": [
-        "-- Per-serving-endpoint cost, grouped by endpoint name + workload.\n",
-        "--\n",
-        "-- Relevant once you move DSPy LLM calls from an external provider\n",
-        "-- (e.g. enterprise OpenAI) to a Databricks-hosted Foundation Model\n",
-        "-- API endpoint like `databricks-claude-sonnet-4-6` (see\n",
-        "-- docs/examples/databricks_hosted_claude_for_dspy.py). Before that\n",
-        "-- switch this query returns nothing for DSPy spend because the\n",
-        "-- DSPy calls never hit Databricks serving. After the switch it\n",
-        "-- becomes the single authoritative view of LLM-call cost for DSPy\n",
-        "-- workloads.\n",
-        "--\n",
-        "-- Also picks up the CoCo agent endpoint (coco-agent) directly if\n",
-        "-- the Mosaic AI Agent Framework deploy attached workload tags\n",
-        "-- via AppResourceServingEndpoint or via the model resources list.\n",
-        "-- As of 2026-04 the Agent Framework deploy does not propagate\n",
-        "-- custom tags the same way cluster policies do, so per-endpoint\n",
-        "-- attribution may have to fall back to the endpoint name column\n",
-        "-- only. We return both flavors so either path works.\n",
-        "\n",
-        "SELECT\n",
-        "    usage.usage_metadata.endpoint_name               AS endpoint_name,\n",
-        "    usage.custom_tags.workload                       AS workload,\n",
-        "    usage.custom_tags.env                            AS env,\n",
-        "    usage.billing_origin_product                     AS product,\n",
-        "    usage.sku_name                                   AS sku,\n",
-        "    SUM(usage.usage_quantity)                        AS dbu_consumed,\n",
-        "    ROUND(SUM(usage.usage_quantity * COALESCE(list.pricing.default, 0)), 2) AS approx_usd,\n",
-        "    MIN(usage.usage_start_time)                      AS first_billed_at,\n",
-        "    MAX(usage.usage_end_time)                        AS last_billed_at\n",
-        "FROM system.billing.usage AS usage\n",
-        "LEFT JOIN system.billing.list_prices AS list\n",
-        "    ON usage.sku_name = list.sku_name\n",
-        "    AND usage.cloud = list.cloud\n",
-        "    AND usage.usage_start_time >= list.price_start_time\n",
-        "    AND (list.price_end_time IS NULL OR usage.usage_start_time < list.price_end_time)\n",
-        "WHERE\n",
-        "    usage.usage_date >= DATE_SUB(CURRENT_DATE(), 30)\n",
+        "WITH coco_usage AS (\n",
+        "  SELECT u.*\n",
+        "  FROM system.billing.usage u\n",
+        "  WHERE u.usage_date >= DATE_SUB(CURRENT_DATE(), :lookback_days)\n",
         "    AND (\n",
-        "        usage.usage_metadata.endpoint_name IS NOT NULL\n",
-        "        OR usage.billing_origin_product = 'MODEL_SERVING'\n",
+        "      u.usage_metadata.app_name = CONCAT('coco-', :unique_id)\n",
+        "      OR u.usage_metadata.endpoint_name = CONCAT('coco-agent-', :unique_id)\n",
+        "      OR u.usage_metadata.endpoint_name = CONCAT('coco-vs-', :unique_id)\n",
+        "      OR (u.billing_origin_product = 'LAKEBASE' AND u.custom_tags['unique_id'] = :unique_id)\n",
+        "      OR (\n",
+        "        :unique_id = 'all' AND (\n",
+        "          u.usage_metadata.app_name LIKE 'coco-%'\n",
+        "          OR u.usage_metadata.endpoint_name LIKE 'coco-%'\n",
+        "          OR (u.billing_origin_product = 'LAKEBASE' AND u.custom_tags['workload'] = 'coco')\n",
+        "        )\n",
+        "      )\n",
         "    )\n",
-        "GROUP BY\n",
-        "    usage.usage_metadata.endpoint_name,\n",
-        "    usage.custom_tags.workload,\n",
-        "    usage.custom_tags.env,\n",
-        "    usage.billing_origin_product,\n",
-        "    usage.sku_name\n",
-        "ORDER BY approx_usd DESC NULLS LAST;\n"
-      ]
-    },
-    {
-      "name": "warehouse_utilization",
-      "displayName": "Warehouse utilization",
-      "queryLines": [
-        "-- Warehouse utilization: active query time vs. idle time.\n",
-        "--\n",
-        "-- Directly addresses the \"a warehouse is sitting there waiting and\n",
-        "-- racking up cost\" concern that surfaces in most cost reviews.\n",
-        "-- Makes the case for aggressive auto-stop (or serverless\n",
-        "-- entirely) by showing exactly how much of the billed window was\n",
-        "-- actually doing useful work.\n",
-        "--\n",
-        "-- Method:\n",
-        "--   1. Bucket each warehouse's billing rows into the time window.\n",
-        "--   2. Sum the total billed DBU per warehouse.\n",
-        "--   3. Separately count the duration of actually-executing queries\n",
-        "--      from system.query.history (idle time = billed time minus\n",
-        "--      query time, roughly).\n",
-        "--   4. Compute a utilization ratio per warehouse.\n",
-        "--\n",
-        "-- Default window: last 14 days. Adjust as needed.\n",
-        "\n",
-        "WITH billed AS (\n",
-        "    SELECT\n",
-        "        usage.usage_metadata.warehouse_id            AS warehouse_id,\n",
-        "        usage.custom_tags.workload                   AS workload,\n",
-        "        SUM(usage.usage_quantity)                    AS billed_dbu,\n",
-        "        -- billed_seconds: DBUs roughly correspond to the warehouse\n",
-        "        -- running for some number of seconds. We can't recover\n",
-        "        -- seconds exactly without the cluster size, but for\n",
-        "        -- relative utilization this is fine.\n",
-        "        SUM(usage.usage_quantity) * 3600             AS billed_seconds_est\n",
-        "    FROM system.billing.usage AS usage\n",
-        "    WHERE usage.usage_date >= DATE_SUB(CURRENT_DATE(), 14)\n",
-        "        AND usage.usage_metadata.warehouse_id IS NOT NULL\n",
-        "    GROUP BY\n",
-        "        usage.usage_metadata.warehouse_id,\n",
-        "        usage.custom_tags.workload\n",
-        "),\n",
-        "queried AS (\n",
-        "    SELECT\n",
-        "        compute.warehouse_id                         AS warehouse_id,\n",
-        "        COUNT(*)                                     AS query_count,\n",
-        "        SUM(total_duration_ms) / 1000.0              AS query_seconds\n",
-        "    FROM system.query.history\n",
-        "    WHERE start_time >= CURRENT_TIMESTAMP() - INTERVAL 14 DAYS\n",
-        "        AND compute.warehouse_id IS NOT NULL\n",
-        "    GROUP BY compute.warehouse_id\n",
         ")\n",
         "SELECT\n",
-        "    b.warehouse_id,\n",
-        "    b.workload,\n",
-        "    b.billed_dbu,\n",
-        "    COALESCE(q.query_count, 0)                       AS query_count,\n",
-        "    COALESCE(q.query_seconds, 0.0)                   AS query_seconds,\n",
-        "    b.billed_seconds_est,\n",
-        "    -- Ratio of actually-used time to billed time. Values close\n",
-        "    -- to 0 mean the warehouse sat idle for most of its billed\n",
-        "    -- window (strong signal to cut auto-stop-mins or move to\n",
-        "    -- serverless). Values above 0.8 mean the warehouse is\n",
-        "    -- saturated and may need scale-out.\n",
-        "    ROUND(\n",
-        "        COALESCE(q.query_seconds, 0.0) / NULLIF(b.billed_seconds_est, 0),\n",
-        "        3\n",
-        "    )                                                AS utilization_ratio\n",
-        "FROM billed b\n",
-        "LEFT JOIN queried q USING (warehouse_id)\n",
-        "ORDER BY utilization_ratio ASC NULLS FIRST;\n"
+        "  ROUND(SUM(c.usage_quantity * COALESCE(lp.pricing.default, 0)), 2) AS total_usd,\n",
+        "  ROUND(SUM(c.usage_quantity), 2)                                  AS total_dbu,\n",
+        "  COUNT(*)                                                         AS billing_rows\n",
+        "FROM coco_usage c\n",
+        "LEFT JOIN system.billing.list_prices lp\n",
+        "  ON c.sku_name = lp.sku_name\n",
+        "  AND c.cloud = lp.cloud\n",
+        "  AND c.usage_start_time BETWEEN lp.price_start_time\n",
+        "                             AND COALESCE(lp.price_end_time, current_timestamp());\n"
+      ],
+      "parameters": [
+        {
+          "displayName": "unique_id",
+          "keyword": "unique_id",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "debusinha"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "lookback_days",
+          "keyword": "lookback_days",
+          "dataType": "INTEGER",
+          "defaultSelection": {
+            "values": {
+              "dataType": "INTEGER",
+              "values": [
+                {
+                  "value": "30"
+                }
+              ]
+            }
+          }
+        }
       ]
     },
     {
-      "name": "top_cost_queries",
-      "displayName": "Top expensive queries",
+      "name": "coco_spend_by_service",
+      "displayName": "CoCo spend by service",
       "queryLines": [
-        "-- Top N most expensive SQL queries by estimated DBU consumed.\n",
+        "-- Widget 2: CoCo spend decomposed by Databricks service.\n",
         "--\n",
-        "-- Surfaces the pathological cohort queries that dominate the bill:\n",
-        "-- expensive joins, full table scans on unpartitioned tables,\n",
-        "-- runaway CTEs from an LLM planner that lost its mind. Fixing\n",
-        "-- these individually is dramatically cheaper than blanket rate\n",
-        "-- limiting or scaling up the warehouse.\n",
+        "-- Answers \"where did the money go?\" Breaks the total from widget 1\n",
+        "-- into LLM Agent Serving, Vector Search, App runtime, and any other\n",
+        "-- service CoCo touches. Ideal rendering: bar chart (service on x,\n",
+        "-- USD on y) or donut.\n",
         "--\n",
-        "-- Relies on `system.query.history`, which captures every query\n",
-        "-- executed on a SQL warehouse along with duration, rows read,\n",
-        "-- and bytes scanned. Enabling it is a system tables toggle at\n",
-        "-- the account level.\n",
-        "--\n",
-        "-- DBU per query is estimated from\n",
-        "--   total_task_duration_ms * dbu_rate(cluster_size)\n",
-        "-- because Databricks bills warehouse DBUs by active cluster\n",
-        "-- time, not per query. The query history captures per-query\n",
-        "-- task duration, so the estimate is approximate but directly\n",
-        "-- comparable across queries on the same warehouse.\n",
-        "--\n",
-        "-- Default: top 50 queries in the last 7 days. Adjust LIMIT and\n",
-        "-- the date window as needed.\n",
+        "-- Uses the same scope CTE as widget 1 so totals reconcile.\n",
         "\n",
-        "WITH window AS (\n",
-        "    SELECT\n",
-        "        statement_id,\n",
-        "        executed_by,\n",
-        "        client_application                         AS source_app,\n",
-        "        compute.warehouse_id                       AS warehouse_id,\n",
-        "        statement_type,\n",
-        "        statement_text,\n",
-        "        start_time,\n",
-        "        end_time,\n",
-        "        total_duration_ms,\n",
-        "        total_task_duration_ms,\n",
-        "        read_bytes,\n",
-        "        read_rows,\n",
-        "        -- Rough normalized cost score. Higher = more expensive.\n",
-        "        -- Multiplying task_duration by read_bytes penalizes both\n",
-        "        -- long-running queries AND queries that scan a lot of data,\n",
-        "        -- which is the classic \"bad cohort query\" signature.\n",
-        "        (COALESCE(total_task_duration_ms, 0) / 1000.0) *\n",
-        "        (COALESCE(read_bytes, 0) / 1024.0 / 1024.0 / 1024.0 + 1) AS cost_score\n",
-        "    FROM system.query.history\n",
-        "    WHERE start_time >= CURRENT_TIMESTAMP() - INTERVAL 7 DAYS\n",
-        "        AND execution_status = 'FINISHED'\n",
-        "        AND statement_type IN ('SELECT', 'DML')\n",
+        "WITH coco_usage AS (\n",
+        "  SELECT\n",
+        "    u.*,\n",
+        "    CASE\n",
+        "      WHEN u.usage_metadata.endpoint_name LIKE 'coco-agent%' THEN 'LLM / Agent Serving'\n",
+        "      WHEN u.usage_metadata.endpoint_name LIKE 'coco-vs%'    THEN 'Vector Search'\n",
+        "      WHEN u.usage_metadata.app_name      LIKE 'coco-%'      THEN 'App (runtime)'\n",
+        "      WHEN u.billing_origin_product = 'LAKEBASE'             THEN 'Lakebase'\n",
+        "      WHEN u.billing_origin_product = 'JOBS'                 THEN 'Jobs / Notebooks'\n",
+        "      ELSE 'Other'\n",
+        "    END AS coco_service\n",
+        "  FROM system.billing.usage u\n",
+        "  WHERE u.usage_date >= DATE_SUB(CURRENT_DATE(), :lookback_days)\n",
+        "    AND (\n",
+        "      u.usage_metadata.app_name = CONCAT('coco-', :unique_id)\n",
+        "      OR u.usage_metadata.endpoint_name = CONCAT('coco-agent-', :unique_id)\n",
+        "      OR u.usage_metadata.endpoint_name = CONCAT('coco-vs-', :unique_id)\n",
+        "      OR (u.billing_origin_product = 'LAKEBASE' AND u.custom_tags['unique_id'] = :unique_id)\n",
+        "      OR (\n",
+        "        :unique_id = 'all' AND (\n",
+        "          u.usage_metadata.app_name LIKE 'coco-%'\n",
+        "          OR u.usage_metadata.endpoint_name LIKE 'coco-%'\n",
+        "          OR (u.billing_origin_product = 'LAKEBASE' AND u.custom_tags['workload'] = 'coco')\n",
+        "        )\n",
+        "      )\n",
+        "    )\n",
         ")\n",
         "SELECT\n",
-        "    start_time,\n",
-        "    executed_by,\n",
-        "    source_app,\n",
-        "    warehouse_id,\n",
-        "    statement_type,\n",
-        "    ROUND(total_duration_ms / 1000.0, 1) AS duration_s,\n",
-        "    ROUND(read_bytes / 1024.0 / 1024.0 / 1024.0, 2) AS read_gb,\n",
-        "    read_rows,\n",
-        "    ROUND(cost_score, 2) AS cost_score,\n",
-        "    -- Truncate the statement for display. Widen in the\n",
-        "    -- dashboard if you want to see the full text on hover.\n",
-        "    SUBSTRING(statement_text, 1, 200) AS statement_preview\n",
-        "FROM window\n",
-        "ORDER BY cost_score DESC\n",
-        "LIMIT 50;\n"
+        "  coco_service,\n",
+        "  ROUND(SUM(c.usage_quantity * COALESCE(lp.pricing.default, 0)), 2) AS usd,\n",
+        "  ROUND(SUM(c.usage_quantity), 2)                                  AS dbu,\n",
+        "  COUNT(*)                                                         AS billing_rows\n",
+        "FROM coco_usage c\n",
+        "LEFT JOIN system.billing.list_prices lp\n",
+        "  ON c.sku_name = lp.sku_name\n",
+        "  AND c.cloud = lp.cloud\n",
+        "  AND c.usage_start_time BETWEEN lp.price_start_time\n",
+        "                             AND COALESCE(lp.price_end_time, current_timestamp())\n",
+        "GROUP BY coco_service\n",
+        "ORDER BY usd DESC;\n"
+      ],
+      "parameters": [
+        {
+          "displayName": "unique_id",
+          "keyword": "unique_id",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "debusinha"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "lookback_days",
+          "keyword": "lookback_days",
+          "dataType": "INTEGER",
+          "defaultSelection": {
+            "values": {
+              "dataType": "INTEGER",
+              "values": [
+                {
+                  "value": "30"
+                }
+              ]
+            }
+          }
+        }
       ]
     },
     {
-      "name": "cost_per_user",
-      "displayName": "Cost per user (tagged queries)",
+      "name": "coco_spend_by_user",
+      "displayName": "CoCo spend by user",
       "queryLines": [
-        "-- Per-user cost approximation from tagged agent queries.\n",
+        "-- Widget 3: CoCo spend per user.\n",
         "--\n",
-        "-- Relies on the SQL comment prefix that the agent's statement client\n",
+        "-- Answers \"who's driving the cost?\" Attribution is inferred from\n",
+        "-- the per-user resource naming convention the bundle uses:\n",
+        "--   coco-<unique_id>          -> the app for that user\n",
+        "--   coco-agent-<unique_id>    -> their agent serving endpoint\n",
+        "--   coco-vs-<unique_id>       -> their vector search endpoint\n",
+        "--\n",
+        "-- When :unique_id is a specific value, this widget returns a single\n",
+        "-- row (that user's spend). When :unique_id = 'all', it returns one\n",
+        "-- row per attendee.\n",
+        "--\n",
+        "-- Ideal rendering: bar chart (user on x, USD on y) when in 'all' mode.\n",
+        "\n",
+        "WITH coco_usage AS (\n",
+        "  SELECT\n",
+        "    u.*,\n",
+        "    COALESCE(\n",
+        "      REGEXP_EXTRACT(u.usage_metadata.endpoint_name, '^coco-(?:agent|vs)-(.+)$', 1),\n",
+        "      REGEXP_EXTRACT(u.usage_metadata.app_name,      '^coco-(.+)$',              1),\n",
+        "      u.custom_tags['unique_id'],\n",
+        "      '(shared)'\n",
+        "    ) AS coco_user\n",
+        "  FROM system.billing.usage u\n",
+        "  WHERE u.usage_date >= DATE_SUB(CURRENT_DATE(), :lookback_days)\n",
+        "    AND (\n",
+        "      u.usage_metadata.app_name = CONCAT('coco-', :unique_id)\n",
+        "      OR u.usage_metadata.endpoint_name = CONCAT('coco-agent-', :unique_id)\n",
+        "      OR u.usage_metadata.endpoint_name = CONCAT('coco-vs-', :unique_id)\n",
+        "      OR (u.billing_origin_product = 'LAKEBASE' AND u.custom_tags['unique_id'] = :unique_id)\n",
+        "      OR (\n",
+        "        :unique_id = 'all' AND (\n",
+        "          u.usage_metadata.app_name LIKE 'coco-%'\n",
+        "          OR u.usage_metadata.endpoint_name LIKE 'coco-%'\n",
+        "          OR (u.billing_origin_product = 'LAKEBASE' AND u.custom_tags['workload'] = 'coco')\n",
+        "        )\n",
+        "      )\n",
+        "    )\n",
+        ")\n",
+        "SELECT\n",
+        "  coco_user,\n",
+        "  ROUND(SUM(c.usage_quantity * COALESCE(lp.pricing.default, 0)), 2) AS usd,\n",
+        "  ROUND(SUM(c.usage_quantity), 2)                                  AS dbu,\n",
+        "  COUNT(DISTINCT\n",
+        "    CASE\n",
+        "      WHEN c.usage_metadata.endpoint_name LIKE 'coco-agent%' THEN 'agent'\n",
+        "      WHEN c.usage_metadata.endpoint_name LIKE 'coco-vs%'    THEN 'vs'\n",
+        "      WHEN c.usage_metadata.app_name      LIKE 'coco-%'      THEN 'app'\n",
+        "      ELSE 'other'\n",
+        "    END\n",
+        "  )                                                                AS services_used\n",
+        "FROM coco_usage c\n",
+        "LEFT JOIN system.billing.list_prices lp\n",
+        "  ON c.sku_name = lp.sku_name\n",
+        "  AND c.cloud = lp.cloud\n",
+        "  AND c.usage_start_time BETWEEN lp.price_start_time\n",
+        "                             AND COALESCE(lp.price_end_time, current_timestamp())\n",
+        "GROUP BY coco_user\n",
+        "ORDER BY usd DESC NULLS LAST;\n"
+      ],
+      "parameters": [
+        {
+          "displayName": "unique_id",
+          "keyword": "unique_id",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "debusinha"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "lookback_days",
+          "keyword": "lookback_days",
+          "dataType": "INTEGER",
+          "defaultSelection": {
+            "values": {
+              "dataType": "INTEGER",
+              "values": [
+                {
+                  "value": "30"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "coco_daily_trend",
+      "displayName": "Daily CoCo spend trend",
+      "queryLines": [
+        "-- Widget 4: Daily CoCo spend, stacked by service.\n",
+        "--\n",
+        "-- Answers \"is it trending up?\" and \"which service is growing fastest?\"\n",
+        "-- One row per (day, service) tuple. Ideal rendering: stacked area\n",
+        "-- chart with `day` on x, `usd` on y, `coco_service` as color.\n",
+        "\n",
+        "WITH coco_usage AS (\n",
+        "  SELECT\n",
+        "    u.*,\n",
+        "    CASE\n",
+        "      WHEN u.usage_metadata.endpoint_name LIKE 'coco-agent%' THEN 'LLM / Agent Serving'\n",
+        "      WHEN u.usage_metadata.endpoint_name LIKE 'coco-vs%'    THEN 'Vector Search'\n",
+        "      WHEN u.usage_metadata.app_name      LIKE 'coco-%'      THEN 'App (runtime)'\n",
+        "      WHEN u.billing_origin_product = 'LAKEBASE'             THEN 'Lakebase'\n",
+        "      WHEN u.billing_origin_product = 'JOBS'                 THEN 'Jobs / Notebooks'\n",
+        "      ELSE 'Other'\n",
+        "    END AS coco_service\n",
+        "  FROM system.billing.usage u\n",
+        "  WHERE u.usage_date >= DATE_SUB(CURRENT_DATE(), :lookback_days)\n",
+        "    AND (\n",
+        "      u.usage_metadata.app_name = CONCAT('coco-', :unique_id)\n",
+        "      OR u.usage_metadata.endpoint_name = CONCAT('coco-agent-', :unique_id)\n",
+        "      OR u.usage_metadata.endpoint_name = CONCAT('coco-vs-', :unique_id)\n",
+        "      OR (u.billing_origin_product = 'LAKEBASE' AND u.custom_tags['unique_id'] = :unique_id)\n",
+        "      OR (\n",
+        "        :unique_id = 'all' AND (\n",
+        "          u.usage_metadata.app_name LIKE 'coco-%'\n",
+        "          OR u.usage_metadata.endpoint_name LIKE 'coco-%'\n",
+        "          OR (u.billing_origin_product = 'LAKEBASE' AND u.custom_tags['workload'] = 'coco')\n",
+        "        )\n",
+        "      )\n",
+        "    )\n",
+        ")\n",
+        "SELECT\n",
+        "  c.usage_date    AS day,\n",
+        "  c.coco_service,\n",
+        "  ROUND(SUM(c.usage_quantity * COALESCE(lp.pricing.default, 0)), 2) AS usd,\n",
+        "  ROUND(SUM(c.usage_quantity), 2)                                  AS dbu\n",
+        "FROM coco_usage c\n",
+        "LEFT JOIN system.billing.list_prices lp\n",
+        "  ON c.sku_name = lp.sku_name\n",
+        "  AND c.cloud = lp.cloud\n",
+        "  AND c.usage_start_time BETWEEN lp.price_start_time\n",
+        "                             AND COALESCE(lp.price_end_time, current_timestamp())\n",
+        "GROUP BY 1, 2\n",
+        "ORDER BY day ASC, coco_service ASC;\n"
+      ],
+      "parameters": [
+        {
+          "displayName": "unique_id",
+          "keyword": "unique_id",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "debusinha"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "lookback_days",
+          "keyword": "lookback_days",
+          "dataType": "INTEGER",
+          "defaultSelection": {
+            "values": {
+              "dataType": "INTEGER",
+              "values": [
+                {
+                  "value": "30"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "coco_top_line_items",
+      "displayName": "Top CoCo line items",
+      "queryLines": [
+        "-- Widget 5: Top CoCo line items.\n",
+        "--\n",
+        "-- Answers \"which single resource is the biggest line item?\" Returns\n",
+        "-- per-resource rollup so a leader can immediately see, for example,\n",
+        "-- that coco-agent-<user> at $26 is driving more than coco-<user> App.\n",
+        "--\n",
+        "-- Ideal rendering: table. Suggested columns:\n",
+        "--   resource_name, coco_service, sku_name, usd, dbu, billing_rows.\n",
+        "\n",
+        "WITH coco_usage AS (\n",
+        "  SELECT\n",
+        "    u.*,\n",
+        "    CASE\n",
+        "      WHEN u.usage_metadata.endpoint_name LIKE 'coco-agent%' THEN 'LLM / Agent Serving'\n",
+        "      WHEN u.usage_metadata.endpoint_name LIKE 'coco-vs%'    THEN 'Vector Search'\n",
+        "      WHEN u.usage_metadata.app_name      LIKE 'coco-%'      THEN 'App (runtime)'\n",
+        "      WHEN u.billing_origin_product = 'LAKEBASE'             THEN 'Lakebase'\n",
+        "      WHEN u.billing_origin_product = 'JOBS'                 THEN 'Jobs / Notebooks'\n",
+        "      ELSE 'Other'\n",
+        "    END AS coco_service\n",
+        "  FROM system.billing.usage u\n",
+        "  WHERE u.usage_date >= DATE_SUB(CURRENT_DATE(), :lookback_days)\n",
+        "    AND (\n",
+        "      u.usage_metadata.app_name = CONCAT('coco-', :unique_id)\n",
+        "      OR u.usage_metadata.endpoint_name = CONCAT('coco-agent-', :unique_id)\n",
+        "      OR u.usage_metadata.endpoint_name = CONCAT('coco-vs-', :unique_id)\n",
+        "      OR (u.billing_origin_product = 'LAKEBASE' AND u.custom_tags['unique_id'] = :unique_id)\n",
+        "      OR (\n",
+        "        :unique_id = 'all' AND (\n",
+        "          u.usage_metadata.app_name LIKE 'coco-%'\n",
+        "          OR u.usage_metadata.endpoint_name LIKE 'coco-%'\n",
+        "          OR (u.billing_origin_product = 'LAKEBASE' AND u.custom_tags['workload'] = 'coco')\n",
+        "        )\n",
+        "      )\n",
+        "    )\n",
+        ")\n",
+        "SELECT\n",
+        "  COALESCE(\n",
+        "    c.usage_metadata.endpoint_name,\n",
+        "    c.usage_metadata.app_name,\n",
+        "    CASE WHEN c.billing_origin_product = 'LAKEBASE'\n",
+        "         THEN CONCAT('coco-lb-', COALESCE(c.custom_tags['unique_id'], '?')) END,\n",
+        "    '(other)'\n",
+        "  ) AS resource_name,\n",
+        "  c.coco_service,\n",
+        "  c.sku_name,\n",
+        "  ROUND(SUM(c.usage_quantity * COALESCE(lp.pricing.default, 0)), 2) AS usd,\n",
+        "  ROUND(SUM(c.usage_quantity), 2)                                  AS dbu,\n",
+        "  COUNT(*)                                                         AS billing_rows\n",
+        "FROM coco_usage c\n",
+        "LEFT JOIN system.billing.list_prices lp\n",
+        "  ON c.sku_name = lp.sku_name\n",
+        "  AND c.cloud = lp.cloud\n",
+        "  AND c.usage_start_time BETWEEN lp.price_start_time\n",
+        "                             AND COALESCE(lp.price_end_time, current_timestamp())\n",
+        "GROUP BY 1, 2, 3\n",
+        "ORDER BY usd DESC\n",
+        "LIMIT 20;\n"
+      ],
+      "parameters": [
+        {
+          "displayName": "unique_id",
+          "keyword": "unique_id",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "debusinha"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "lookback_days",
+          "keyword": "lookback_days",
+          "dataType": "INTEGER",
+          "defaultSelection": {
+            "values": {
+              "dataType": "INTEGER",
+              "values": [
+                {
+                  "value": "30"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "coco_top_sql_queries",
+      "displayName": "Top CoCo SQL queries",
+      "queryLines": [
+        "-- Widget 6: Top CoCo SQL queries (warehouse cost per query).\n",
+        "--\n",
+        "-- Answers \"which individual cohort query is burning warehouse time?\"\n",
+        "-- Relies on the SQL comment prefix the agent's statement client\n",
         "-- prepends to every query:\n",
         "--     /* coco_user_id=<id>, coco_thread_id=<id> */\n",
-        "-- which lands in system.query.history.statement_text. We regex the\n",
-        "-- user_id back out and aggregate task-duration as a proxy for the\n",
-        "-- user's share of warehouse DBU cost.\n",
+        "-- which lands in system.query.history.statement_text. The LIKE\n",
+        "-- anchor is the OPENING of the comment, which avoids the \"query\n",
+        "-- that mentions the prefix in its own body\" self-match pitfall.\n",
         "--\n",
-        "-- This is an approximation: warehouse DBUs bill on active cluster time,\n",
-        "-- not per-query task time, so a user running queries on an otherwise\n",
-        "-- idle warehouse bears the full idle overhead. For loads with many\n",
-        "-- concurrent users the approximation is close. For a sparse workload\n",
-        "-- treat it as \"relative spend share\", not dollars.\n",
-        "--\n",
-        "-- Default window: last 14 days. Adjust as needed.\n",
+        "-- Ideal rendering: table sorted by cost_score desc. Suggested columns:\n",
+        "--   start_time, user_id, duration_s, read_gb, cost_score, statement_preview.\n",
         "\n",
-        "WITH tagged AS (\n",
-        "    SELECT\n",
-        "        REGEXP_EXTRACT(qh.statement_text, 'coco_user_id=([^,\\\\s*]+)', 1) AS user_id,\n",
-        "        qh.compute.warehouse_id                              AS warehouse_id,\n",
-        "        COUNT(*)                                              AS query_count,\n",
-        "        SUM(qh.total_duration_ms) / 1000.0                    AS total_duration_s,\n",
-        "        SUM(qh.total_task_duration_ms) / 1000.0               AS total_task_s,\n",
-        "        SUM(qh.read_bytes) / 1024.0 / 1024.0 / 1024.0         AS read_gb\n",
-        "    FROM system.query.history qh\n",
-        "    WHERE qh.start_time >= CURRENT_TIMESTAMP() - INTERVAL 14 DAYS\n",
-        "        AND qh.statement_text LIKE '%coco_user_id=%'\n",
-        "        AND qh.compute.warehouse_id IS NOT NULL\n",
-        "        AND qh.execution_status = 'FINISHED'\n",
-        "    GROUP BY 1, 2\n",
+        "SELECT\n",
+        "  qh.start_time,\n",
+        "  REGEXP_EXTRACT(qh.statement_text, 'coco_user_id=([^,\\\\s*]+)', 1) AS coco_user_id,\n",
+        "  REGEXP_EXTRACT(qh.statement_text, 'coco_thread_id=([^,\\\\s*]+)', 1) AS coco_thread_id,\n",
+        "  qh.compute.warehouse_id                                          AS warehouse_id,\n",
+        "  qh.statement_type,\n",
+        "  ROUND(qh.total_duration_ms / 1000.0, 1)                          AS duration_s,\n",
+        "  ROUND(COALESCE(qh.read_bytes, 0) / 1024.0 / 1024.0 / 1024.0, 2)  AS read_gb,\n",
+        "  qh.read_rows,\n",
+        "  -- Normalized relative cost score (long + heavy = expensive).\n",
+        "  ROUND(\n",
+        "    (COALESCE(qh.total_task_duration_ms, 0) / 1000.0) *\n",
+        "    (COALESCE(qh.read_bytes, 0) / 1024.0 / 1024.0 / 1024.0 + 1),\n",
+        "    2\n",
+        "  )                                                                AS cost_score,\n",
+        "  SUBSTRING(qh.statement_text, 1, 200)                             AS statement_preview\n",
+        "FROM system.query.history qh\n",
+        "WHERE qh.start_time >= CAST(DATE_SUB(CURRENT_DATE(), :lookback_days) AS TIMESTAMP)\n",
+        "  AND qh.statement_text LIKE '/* coco_user_id=%'\n",
+        "  AND qh.execution_status = 'FINISHED'\n",
+        "  AND qh.statement_type IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE', 'MERGE')\n",
+        "  AND (\n",
+        "    :unique_id = 'all'\n",
+        "    OR qh.statement_text LIKE CONCAT('/* coco_user_id=', :unique_id, ',%')\n",
+        "  )\n",
+        "ORDER BY cost_score DESC\n",
+        "LIMIT 50;\n"
+      ],
+      "parameters": [
+        {
+          "displayName": "unique_id",
+          "keyword": "unique_id",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "debusinha"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "lookback_days",
+          "keyword": "lookback_days",
+          "dataType": "INTEGER",
+          "defaultSelection": {
+            "values": {
+              "dataType": "INTEGER",
+              "values": [
+                {
+                  "value": "30"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "coco_spend_spikes",
+      "displayName": "CoCo spend spikes",
+      "queryLines": [
+        "-- Widget 7: Day-over-day CoCo spend spikes.\n",
+        "--\n",
+        "-- Flags days where CoCo spend jumped more than 50% above the trailing\n",
+        "-- 7-day mean. The floor threshold is tuned to CoCo's baseline (at\n",
+        "-- $0.50/day, not the $1 DBU baseline used in account-wide spike\n",
+        "-- dashboards) because CoCo's daily spend can sit in single dollars\n",
+        "-- during quiet periods and a 1 DBU floor would suppress every real\n",
+        "-- spike.\n",
+        "--\n",
+        "-- Ideal rendering: table. Suggested columns:\n",
+        "--   day, usd, trailing_7d_mean, pct_vs_7d.\n",
+        "\n",
+        "WITH coco_usage AS (\n",
+        "  SELECT u.usage_date, u.sku_name, u.cloud, u.usage_quantity, u.usage_start_time\n",
+        "  FROM system.billing.usage u\n",
+        "  WHERE u.usage_date >= DATE_SUB(CURRENT_DATE(), :lookback_days)\n",
+        "    AND (\n",
+        "      u.usage_metadata.app_name = CONCAT('coco-', :unique_id)\n",
+        "      OR u.usage_metadata.endpoint_name = CONCAT('coco-agent-', :unique_id)\n",
+        "      OR u.usage_metadata.endpoint_name = CONCAT('coco-vs-', :unique_id)\n",
+        "      OR (u.billing_origin_product = 'LAKEBASE' AND u.custom_tags['unique_id'] = :unique_id)\n",
+        "      OR (\n",
+        "        :unique_id = 'all' AND (\n",
+        "          u.usage_metadata.app_name LIKE 'coco-%'\n",
+        "          OR u.usage_metadata.endpoint_name LIKE 'coco-%'\n",
+        "          OR (u.billing_origin_product = 'LAKEBASE' AND u.custom_tags['workload'] = 'coco')\n",
+        "        )\n",
+        "      )\n",
+        "    )\n",
         "),\n",
-        "warehouse_spend AS (\n",
-        "    SELECT\n",
-        "        usage.usage_metadata.warehouse_id              AS warehouse_id,\n",
-        "        SUM(usage.usage_quantity * lp.pricing.default) AS warehouse_usd,\n",
-        "        SUM(usage.usage_quantity)                      AS warehouse_dbu\n",
-        "    FROM system.billing.usage usage\n",
-        "    LEFT JOIN system.billing.list_prices lp\n",
-        "        ON usage.cloud = lp.cloud\n",
-        "       AND usage.sku_name = lp.sku_name\n",
-        "       AND usage.usage_start_time BETWEEN lp.price_start_time\n",
-        "                                      AND COALESCE(lp.price_end_time, current_timestamp())\n",
-        "    WHERE usage.usage_date >= DATE_SUB(CURRENT_DATE(), 14)\n",
-        "        AND usage.usage_metadata.warehouse_id IS NOT NULL\n",
-        "    GROUP BY 1\n",
+        "daily AS (\n",
+        "  SELECT\n",
+        "    c.usage_date AS day,\n",
+        "    SUM(c.usage_quantity * COALESCE(lp.pricing.default, 0)) AS usd\n",
+        "  FROM coco_usage c\n",
+        "  LEFT JOIN system.billing.list_prices lp\n",
+        "    ON c.sku_name = lp.sku_name\n",
+        "    AND c.cloud = lp.cloud\n",
+        "    AND c.usage_start_time BETWEEN lp.price_start_time\n",
+        "                               AND COALESCE(lp.price_end_time, current_timestamp())\n",
+        "  GROUP BY c.usage_date\n",
+        "),\n",
+        "windowed AS (\n",
+        "  SELECT\n",
+        "    day,\n",
+        "    usd,\n",
+        "    AVG(usd) OVER (\n",
+        "      ORDER BY day\n",
+        "      ROWS BETWEEN 7 PRECEDING AND 1 PRECEDING\n",
+        "    ) AS trailing_7d_mean\n",
+        "  FROM daily\n",
         ")\n",
         "SELECT\n",
-        "    t.user_id,\n",
-        "    SUM(t.query_count)                                    AS query_count_14d,\n",
-        "    ROUND(SUM(t.total_task_s), 1)                         AS task_seconds_14d,\n",
-        "    ROUND(SUM(t.read_gb), 2)                              AS read_gb_14d,\n",
-        "    -- Proportional cost: user's task seconds / all users' task seconds\n",
-        "    -- on the same warehouse, times the warehouse's 14-day USD spend.\n",
-        "    ROUND(\n",
-        "        SUM(\n",
-        "            t.total_task_s * ws.warehouse_usd\n",
-        "            / NULLIF(\n",
-        "                SUM(t.total_task_s) OVER (PARTITION BY t.warehouse_id),\n",
-        "                0\n",
-        "            )\n",
-        "        ),\n",
-        "        4\n",
-        "    )                                                     AS approx_usd_14d\n",
-        "FROM tagged t\n",
-        "LEFT JOIN warehouse_spend ws USING (warehouse_id)\n",
-        "GROUP BY t.user_id\n",
-        "ORDER BY approx_usd_14d DESC NULLS LAST;\n"
+        "  day,\n",
+        "  ROUND(usd, 2)                                                  AS usd,\n",
+        "  ROUND(trailing_7d_mean, 2)                                     AS trailing_7d_mean,\n",
+        "  ROUND((usd - trailing_7d_mean) / NULLIF(trailing_7d_mean, 0) * 100, 1) AS pct_vs_7d\n",
+        "FROM windowed\n",
+        "WHERE trailing_7d_mean IS NOT NULL\n",
+        "  AND trailing_7d_mean > 0.5\n",
+        "  AND (usd - trailing_7d_mean) / trailing_7d_mean > 0.5\n",
+        "ORDER BY pct_vs_7d DESC\n",
+        "LIMIT 20;\n"
+      ],
+      "parameters": [
+        {
+          "displayName": "unique_id",
+          "keyword": "unique_id",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "debusinha"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "lookback_days",
+          "keyword": "lookback_days",
+          "dataType": "INTEGER",
+          "defaultSelection": {
+            "values": {
+              "dataType": "INTEGER",
+              "values": [
+                {
+                  "value": "30"
+                }
+              ]
+            }
+          }
+        }
       ]
     }
   ],
@@ -435,8 +630,8 @@
       "layout": [
         {
           "widget": {
-            "name": "intro_text",
-            "textbox_spec": "# CoCo Cost Attribution\n\nSeven datasets are pre-wired below. Drag each onto the canvas to build counter / bar / line / table widgets. All queries hit `system.billing.usage`, `system.billing.list_prices`, and `system.query.history` - no custom tables required.\n\n**Per-user breakdown** (the `cost_per_user` dataset) works only for queries tagged by the CoCo agent. The SQL comment prefix `/* coco_user_id=... */` lands in `system.query.history.statement_text` and the query pulls it back out."
+            "name": "intro",
+            "textbox_spec": "# CoCo Cost Attribution\n\nEvery widget on this page is scoped by the dashboard parameters at the top:\n\n- **unique_id** \u2014 defaults to `all`. Set it to your deploy's `unique_id` (e.g. `debusinha`, `ds`, `dev`) to see only your own spend. `all` aggregates every `coco-*` resource this workspace can see.\n- **lookback_days** \u2014 defaults to 30.\n\n### Seven datasets are wired up\n\n1. **Total CoCo spend** \u2014 the one number (USD + DBU) for the scope.\n2. **Spend by service** \u2014 split across LLM Serving, Vector Search, App runtime.\n3. **Spend by user** \u2014 breakdown by `coco-<unique_id>` resource suffix.\n4. **Daily trend** \u2014 time series stacked by service.\n5. **Top line items** \u2014 per-resource ranked by USD.\n6. **Top SQL queries** \u2014 per-query warehouse cost (requires agent traffic with `/* coco_user_id= */` prefix).\n7. **Spend spikes** \u2014 days that jumped >50% above trailing 7-day mean.\n\n### How to render the widgets\n\nClick the **pencil (edit)** icon in the top right. Drag each dataset from the left panel onto the canvas. Choose visual type (bar/line/table/counter). Each dataset's leading SQL comment recommends a visualization.\n\nKnown quirk: widgets configured via API often render `No data`. Always build them through the drag-drop UI, not by editing the JSON directly.\n\n### If you see empty results\n\n- `system.billing.usage` has ~24h lag for new deployments.\n- A brand-new Lakebase instance can take 2-3 days before its DATABASE rows appear.\n- Widget 6 needs the agent to have executed SQL on a warehouse with the `/* coco_user_id= */` comment prefix \u2014 if you haven't run a query through the agent yet, this widget is empty."
           },
           "position": {
             "x": 0,
@@ -444,8 +639,931 @@
             "width": 6,
             "height": 4
           }
+        },
+        {
+          "widget": {
+            "name": "a76d8069",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "coco_total_spend",
+                  "fields": [
+                    {
+                      "name": "total_usd",
+                      "expression": "`total_usd`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "total_usd",
+                  "displayName": "Total CoCo USD (30d)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Total CoCo USD (30d)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "86fa1817",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "coco_total_spend",
+                  "fields": [
+                    {
+                      "name": "total_dbu",
+                      "expression": "`total_dbu`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "total_dbu",
+                  "displayName": "Total CoCo DBU (30d)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Total CoCo DBU (30d)"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 4,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "59ba27c4",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "coco_total_spend",
+                  "fields": [
+                    {
+                      "name": "billing_rows",
+                      "expression": "`billing_rows`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "billing_rows",
+                  "displayName": "Billing rows"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Billing rows"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 4,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "3e38b0b2",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "coco_spend_by_service",
+                  "fields": [
+                    {
+                      "name": "coco_service",
+                      "expression": "`coco_service`"
+                    },
+                    {
+                      "name": "usd",
+                      "expression": "`usd`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "coco_service",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "coco_service"
+                },
+                "y": {
+                  "fieldName": "usd",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "usd"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Spend by service (USD, 30d)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 7,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "5dca0c01",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "coco_spend_by_user",
+                  "fields": [
+                    {
+                      "name": "coco_user",
+                      "expression": "`coco_user`"
+                    },
+                    {
+                      "name": "usd",
+                      "expression": "`usd`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "coco_user",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "coco_user"
+                },
+                "y": {
+                  "fieldName": "usd",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "usd"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Spend by user (USD, 30d)"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 7,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "d74018fd",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "coco_daily_trend",
+                  "fields": [
+                    {
+                      "name": "day",
+                      "expression": "`day`"
+                    },
+                    {
+                      "name": "usd",
+                      "expression": "`usd`"
+                    },
+                    {
+                      "name": "coco_service",
+                      "expression": "`coco_service`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "day",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Date"
+                },
+                "y": {
+                  "fieldName": "usd",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "usd"
+                },
+                "color": {
+                  "fieldName": "coco_service",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "coco_service"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Daily spend by service (USD)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 13,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "f4330c4a",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "coco_top_line_items",
+                  "fields": [
+                    {
+                      "name": "resource_name",
+                      "expression": "`resource_name`"
+                    },
+                    {
+                      "name": "coco_service",
+                      "expression": "`coco_service`"
+                    },
+                    {
+                      "name": "usd",
+                      "expression": "`usd`"
+                    },
+                    {
+                      "name": "dbu",
+                      "expression": "`dbu`"
+                    },
+                    {
+                      "name": "billing_rows",
+                      "expression": "`billing_rows`"
+                    },
+                    {
+                      "name": "sku_name",
+                      "expression": "`sku_name`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "resource_name",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 0,
+                    "title": "Resource",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": true,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Resource"
+                  },
+                  {
+                    "fieldName": "coco_service",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 1,
+                    "title": "Service",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": true,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Service"
+                  },
+                  {
+                    "fieldName": "usd",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "decimal",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 2,
+                    "title": "USD (30d)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "USD (30d)",
+                    "numberFormat": "0.00"
+                  },
+                  {
+                    "fieldName": "dbu",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "decimal",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 3,
+                    "title": "DBU (30d)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "DBU (30d)",
+                    "numberFormat": "0.00"
+                  },
+                  {
+                    "fieldName": "billing_rows",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 4,
+                    "title": "Rows",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Rows",
+                    "numberFormat": "0"
+                  },
+                  {
+                    "fieldName": "sku_name",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 5,
+                    "title": "SKU",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": true,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "SKU"
+                  }
+                ]
+              },
+              "invisibleColumns": [],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": false,
+              "withRowNumber": true,
+              "frame": {
+                "showTitle": true,
+                "title": "Top line items (30d)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 19,
+            "width": 6,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "bb0d5a30",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "coco_spend_spikes",
+                  "fields": [
+                    {
+                      "name": "day",
+                      "expression": "`day`"
+                    },
+                    {
+                      "name": "usd",
+                      "expression": "`usd`"
+                    },
+                    {
+                      "name": "trailing_7d_mean",
+                      "expression": "`trailing_7d_mean`"
+                    },
+                    {
+                      "name": "pct_vs_7d",
+                      "expression": "`pct_vs_7d`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "day",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "datetime",
+                    "displayAs": "datetime",
+                    "visible": true,
+                    "order": 0,
+                    "title": "Day",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": true,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Day"
+                  },
+                  {
+                    "fieldName": "usd",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "decimal",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 1,
+                    "title": "USD",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "USD",
+                    "numberFormat": "0.00"
+                  },
+                  {
+                    "fieldName": "trailing_7d_mean",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "decimal",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 2,
+                    "title": "7d mean",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "7d mean",
+                    "numberFormat": "0.00"
+                  },
+                  {
+                    "fieldName": "pct_vs_7d",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "decimal",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 3,
+                    "title": "% vs 7d",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "% vs 7d",
+                    "numberFormat": "0.00"
+                  }
+                ]
+              },
+              "invisibleColumns": [],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": false,
+              "withRowNumber": true,
+              "frame": {
+                "showTitle": true,
+                "title": "Day-over-day spikes (>50% vs trailing 7d)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 27,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "8abe4ba9",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "coco_top_sql_queries",
+                  "fields": [
+                    {
+                      "name": "start_time",
+                      "expression": "`start_time`"
+                    },
+                    {
+                      "name": "coco_user_id",
+                      "expression": "`coco_user_id`"
+                    },
+                    {
+                      "name": "duration_s",
+                      "expression": "`duration_s`"
+                    },
+                    {
+                      "name": "read_gb",
+                      "expression": "`read_gb`"
+                    },
+                    {
+                      "name": "cost_score",
+                      "expression": "`cost_score`"
+                    },
+                    {
+                      "name": "statement_preview",
+                      "expression": "`statement_preview`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "start_time",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "datetime",
+                    "displayAs": "datetime",
+                    "visible": true,
+                    "order": 0,
+                    "title": "Start",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": true,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Start"
+                  },
+                  {
+                    "fieldName": "coco_user_id",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 1,
+                    "title": "User",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": true,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "User"
+                  },
+                  {
+                    "fieldName": "duration_s",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "decimal",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 2,
+                    "title": "Duration (s)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Duration (s)",
+                    "numberFormat": "0.00"
+                  },
+                  {
+                    "fieldName": "read_gb",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "decimal",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 3,
+                    "title": "Read (GB)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Read (GB)",
+                    "numberFormat": "0.00"
+                  },
+                  {
+                    "fieldName": "cost_score",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "decimal",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 4,
+                    "title": "Cost score",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Cost score",
+                    "numberFormat": "0.00"
+                  },
+                  {
+                    "fieldName": "statement_preview",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 5,
+                    "title": "SQL preview",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": true,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "SQL preview"
+                  }
+                ]
+              },
+              "invisibleColumns": [],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": false,
+              "withRowNumber": true,
+              "frame": {
+                "showTitle": true,
+                "title": "Top SQL queries (needs agent traffic)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 33,
+            "width": 6,
+            "height": 8
+          }
         }
       ]
     }
-  ]
+  ],
+  "ui_settings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    }
+  }
 }
