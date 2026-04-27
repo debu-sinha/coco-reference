@@ -82,6 +82,7 @@ from uuid import uuid4
 import mlflow
 import psycopg
 from databricks.sdk import WorkspaceClient
+from mlflow.genai.judges import make_judge
 from mlflow.genai.optimize import GepaPromptOptimizer
 
 # Why mlflow.deployments instead of databricks_openai.DatabricksOpenAI:
