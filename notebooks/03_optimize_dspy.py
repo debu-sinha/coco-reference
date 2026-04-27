@@ -83,7 +83,6 @@ import mlflow
 import psycopg
 from databricks.sdk import WorkspaceClient
 from mlflow.genai.optimize import GepaPromptOptimizer
-from mlflow.genai.scorers import Correctness
 
 # Why mlflow.deployments instead of databricks_openai.DatabricksOpenAI:
 # the serverless runtime's preinstalled databricks-openai is 0.0.x and
@@ -264,12 +263,33 @@ with mlflow.start_run(run_name=f"optimize_prompts_{datetime.utcnow().strftime('%
     mlflow.log_param("reflection_model", reflection_model)
     mlflow.log_param("judge_model", judge_model)
 
+    # Use make_judge with feedback_value_type=bool for structured output.
+    # The legacy Correctness scorer routed through the Gateway adapter,
+    # which assumed the judge response was pure JSON and called
+    # json.loads() on the full string. Reasoning-style models (Claude,
+    # GPT-5+) prepend chain-of-thought before the JSON block, breaking
+    # that path with "Expecting value: line 1 column 1". make_judge uses
+    # structured output (typed feedback value) so the response is
+    # extracted as a proper bool regardless of any prose preamble.
+    cohort_correctness = make_judge(
+        name="cohort_correctness",
+        instructions=(
+            "Compare the agent's answer against the expected answer. "
+            "Return True if the agent's answer is factually consistent with "
+            "the expected answer (same patient counts, same cohort definition, "
+            "same clinical codes referenced), False otherwise. Minor differences "
+            "in phrasing or formatting are acceptable."
+        ),
+        model=f"databricks:/{judge_model}",
+        feedback_value_type=bool,
+    )
+
     result = mlflow.genai.optimize_prompts(
         predict_fn=predict_fn,
         train_data=train_data,
         prompt_uris=[prompt.uri],
         optimizer=GepaPromptOptimizer(reflection_model=f"databricks:/{reflection_model}"),
-        scorers=[Correctness(model=f"databricks:/{judge_model}")],
+        scorers=[cohort_correctness],
     )
 
     optimized = result.optimized_prompts[0]
