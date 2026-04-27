@@ -184,7 +184,7 @@ if len(rows) < min_examples:
 #   {"inputs": {...}, "outputs": {...}, "expectations": {...}}
 # We use the thumbs-up answer as both the expected output AND as the
 # single expectation fact for the Correctness scorer.
-train_data = [
+all_data = [
     {
         "inputs": {"question": q},
         "outputs": {"response": a},
@@ -192,6 +192,27 @@ train_data = [
     }
     for q, a in rows
 ]
+
+# Hold back 30% as a validation set so we can detect overfitting before
+# promoting the optimized prompt. Without this guard, a prompt that
+# scored 100% on 3 training examples could be promoted even if it broke
+# every real query in production. Minimum 1 holdout example; falls back
+# to using all rows for both train and holdout if we only have 1-2
+# thumbs-up (workshop demo case).
+import random as _random
+
+_random.seed(42)
+_shuffled = list(all_data)
+_random.shuffle(_shuffled)
+_holdout_n = max(1, len(_shuffled) // 3)
+if len(_shuffled) < 3:
+    train_data = _shuffled
+    holdout_data = _shuffled
+    print(f"Only {len(_shuffled)} examples — using all for both train and holdout.")
+else:
+    holdout_data = _shuffled[:_holdout_n]
+    train_data = _shuffled[_holdout_n:]
+    print(f"Split: {len(train_data)} train / {len(holdout_data)} holdout")
 
 # COMMAND ----------
 # MAGIC %md
@@ -305,20 +326,103 @@ with mlflow.start_run(run_name=f"optimize_prompts_{datetime.utcnow().strftime('%
 
     run_id = mlflow.active_run().info.run_id
 
-# COMMAND ----------
-# Promote the optimized version to "production" so the live agent picks
-# it up on the next load_prompt call.
-mlflow.genai.set_prompt_alias(
-    name=prompt_name,
-    version=int(optimized.version),
-    alias="production",
-)
-print(f"Set alias production -> v{optimized.version} on {prompt_name}")
+    # COMMAND ----------
+    # Held-out validation BEFORE promoting to @production. GEPA is
+    # allowed to overfit the training subset (small N, repeated judging).
+    # The held-out set is the first time the optimized prompt sees
+    # questions it wasn't tuned against. If it regresses, we keep the old
+    # prompt and log the failure so the next run can try again.
+    def _baseline_predict(question: str) -> str:
+        import mlflow
+        from mlflow.deployments import get_deploy_client
+
+        client = get_deploy_client("databricks")
+        # Load whatever the CURRENT @production version is (i.e. before
+        # this optimizer run). If no production alias yet, fall back to v1.
+        try:
+            p = mlflow.genai.load_prompt(f"prompts:/{prompt_name}/production")
+        except Exception:
+            p = mlflow.genai.load_prompt(f"prompts:/{prompt_name}/1")
+        resp = client.predict(
+            endpoint=chat_model,
+            inputs={"messages": [{"role": "user", "content": p.format(question=question)}]},
+        )
+        return resp["choices"][0]["message"]["content"]
+
+    def _optimized_predict(question: str) -> str:
+        import mlflow
+        from mlflow.deployments import get_deploy_client
+
+        client = get_deploy_client("databricks")
+        p = mlflow.genai.load_prompt(f"prompts:/{prompt_name}/{optimized.version}")
+        resp = client.predict(
+            endpoint=chat_model,
+            inputs={"messages": [{"role": "user", "content": p.format(question=question)}]},
+        )
+        return resp["choices"][0]["message"]["content"]
+
+    print(f"\nRunning held-out validation on {len(holdout_data)} examples...")
+    baseline_eval = mlflow.genai.evaluate(
+        data=holdout_data, predict_fn=_baseline_predict, scorers=[cohort_correctness]
+    )
+    optimized_eval = mlflow.genai.evaluate(
+        data=holdout_data, predict_fn=_optimized_predict, scorers=[cohort_correctness]
+    )
+
+    # mlflow.genai.evaluate returns an EvaluationResult with metrics; for
+    # bool scorers the aggregate is the pass-rate (0.0 to 1.0).
+    def _pass_rate(eval_result):
+        df = eval_result.tables.get("eval_results", None)
+        if df is None or len(df) == 0:
+            return 0.0
+        col = f"assessments/{cohort_correctness.name}/value"
+        if col in df.columns:
+            return float(df[col].mean())
+        # fallback: any boolean assessment column
+        for c in df.columns:
+            if c.startswith("assessments/") and c.endswith("/value"):
+                return float(df[c].mean())
+        return 0.0
+
+    baseline_score = _pass_rate(baseline_eval)
+    optimized_score = _pass_rate(optimized_eval)
+    mlflow.log_metric("holdout_baseline_score", baseline_score)
+    mlflow.log_metric("holdout_optimized_score", optimized_score)
+    mlflow.log_metric("holdout_delta", optimized_score - baseline_score)
+    print(f"Held-out: baseline={baseline_score:.3f}  optimized={optimized_score:.3f}")
 
 # COMMAND ----------
+# Conditionally promote the optimized version to @production. Only flip
+# the alias if the optimized prompt scores at least as well as the
+# baseline on the held-out set. Previously the alias flipped
+# unconditionally, so a prompt that overfit to 3 training examples could
+# regress production behavior with no warning.
+if optimized_score >= baseline_score:
+    mlflow.genai.set_prompt_alias(
+        name=prompt_name,
+        version=int(optimized.version),
+        alias="production",
+    )
+    print(
+        f"Promoted production -> v{optimized.version} "
+        f"(holdout {baseline_score:.3f} -> {optimized_score:.3f})"
+    )
+else:
+    print(
+        f"REGRESSION on holdout ({baseline_score:.3f} -> {optimized_score:.3f}). "
+        f"Keeping current @production. v{optimized.version} remains registered "
+        f"but unaliased."
+    )
+
+# COMMAND ----------
+_promoted = optimized_score >= baseline_score
 summary = {
-    "status": "completed",
+    "status": "completed" if _promoted else "completed_regression_held_back",
     "train_examples": len(train_data),
+    "holdout_examples": len(holdout_data),
+    "holdout_baseline_score": baseline_score,
+    "holdout_optimized_score": optimized_score,
+    "promoted_to_production": _promoted,
     "optimizer": "GepaPromptOptimizer",
     "prompt_name": prompt_name,
     "optimized_version": optimized.version,
