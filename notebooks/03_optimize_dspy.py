@@ -275,11 +275,14 @@ with mlflow.start_run(run_name=f"optimize_prompts_{datetime.utcnow().strftime('%
     cohort_correctness = make_judge(
         name="cohort_correctness",
         instructions=(
-            "Compare the agent's answer against the expected answer. "
-            "Return True if the agent's answer is factually consistent with "
-            "the expected answer (same patient counts, same cohort definition, "
-            "same clinical codes referenced), False otherwise. Minor differences "
-            "in phrasing or formatting are acceptable."
+            "You are evaluating a clinical-data assistant's answer.\n\n"
+            "Question (inputs): {{ inputs }}\n\n"
+            "Expected reference answer (expectations): {{ expectations }}\n\n"
+            "Agent's actual answer (outputs): {{ outputs }}\n\n"
+            "Return True if the agent's answer is factually consistent with the "
+            "expected answer (same patient counts, same cohort definition, same "
+            "clinical codes referenced), False otherwise. Minor differences in "
+            "phrasing or formatting are acceptable."
         ),
         model=f"databricks:/{judge_model}",
         feedback_value_type=bool,
