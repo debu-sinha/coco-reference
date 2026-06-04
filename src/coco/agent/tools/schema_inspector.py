@@ -161,9 +161,11 @@ async def inspect_schema(tables: list[str] | None = None) -> SchemaInspectorResu
         # event loop. Sequential probes are fine for 6 tables.
         probe_results = await asyncio.to_thread(_probe_all)
 
+        errors: dict[str, str] = {}
         for name, cols, err in probe_results:
             if err:
                 logger.warning("inspect_schema: skipping %s (%s)", name, err)
+                errors[name] = str(err)
                 continue
             table_list.append(
                 {
@@ -176,11 +178,12 @@ async def inspect_schema(tables: list[str] | None = None) -> SchemaInspectorResu
             columns_by_table[name] = cols
 
         logger.info(
-            "inspect_schema: %d tables, %d columns total",
+            "inspect_schema: %d tables, %d columns, %d errors",
             len(table_list),
             sum(len(v) for v in columns_by_table.values()),
+            len(errors),
         )
-        return SchemaInspectorResult(tables=table_list, columns=columns_by_table)
+        return SchemaInspectorResult(tables=table_list, columns=columns_by_table, errors=errors)
 
     except Exception as e:
         logger.exception("Schema inspection failed: %s", e)

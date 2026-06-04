@@ -3,6 +3,7 @@
 Defines request/response types, tool calls, and state objects
 for the CoCo agent interface.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -15,6 +16,7 @@ from pydantic import BaseModel, Field
 
 class MessageRole(str, Enum):
     """Message role enumeration."""
+
     USER = "user"
     ASSISTANT = "assistant"
     SYSTEM = "system"
@@ -22,12 +24,14 @@ class MessageRole(str, Enum):
 
 class Message(BaseModel):
     """A single message in the conversation."""
+
     role: MessageRole
     content: str
 
 
 class ToolCallType(str, Enum):
     """Supported tool types."""
+
     CLINICAL_CODES = "clinical_codes"
     SQL_GENERATOR = "sql_generator"
     SQL_EXECUTOR = "sql_executor"
@@ -37,6 +41,7 @@ class ToolCallType(str, Enum):
 
 class ToolCall(BaseModel):
     """A tool invocation with input parameters."""
+
     tool_type: ToolCallType
     tool_name: str
     input_params: dict[str, Any] = Field(default_factory=dict)
@@ -45,6 +50,7 @@ class ToolCall(BaseModel):
 
 class ToolResult(BaseModel):
     """Result from a tool execution."""
+
     tool_call_id: Optional[str] = None
     tool_type: ToolCallType
     tool_name: str
@@ -56,6 +62,7 @@ class ToolResult(BaseModel):
 
 class ClinicalCode(BaseModel):
     """A clinical code with confidence."""
+
     code: str
     type: str  # ICD-10, NDC, CPT, etc.
     description: str
@@ -64,6 +71,7 @@ class ClinicalCode(BaseModel):
 
 class ClinicalCodeResult(BaseModel):
     """Results from clinical code identification."""
+
     codes: list[ClinicalCode] = Field(default_factory=list)
     query: str = ""
     model_used: str = ""
@@ -71,6 +79,7 @@ class ClinicalCodeResult(BaseModel):
 
 class SQLGeneratorResult(BaseModel):
     """Results from SQL generation."""
+
     sql: str = ""
     rationale: str = ""
     schema_context: str = ""
@@ -80,6 +89,7 @@ class SQLGeneratorResult(BaseModel):
 
 class SQLExecutorResult(BaseModel):
     """Results from SQL execution."""
+
     statement_id: Optional[str] = None
     row_count: int = 0
     columns: list[str] = Field(default_factory=list)
@@ -90,6 +100,7 @@ class SQLExecutorResult(BaseModel):
 
 class KnowledgeRAGResult(BaseModel):
     """Results from knowledge base retrieval."""
+
     chunks: list[dict[str, Any]] = Field(default_factory=list)
     total_chunks: int = 0
     search_query: str = ""
@@ -97,14 +108,19 @@ class KnowledgeRAGResult(BaseModel):
 
 class SchemaInspectorResult(BaseModel):
     """Results from schema inspection."""
+
     tables: list[dict[str, Any]] = Field(default_factory=list)
-    columns: dict[str, list[dict[str, Any]]] = Field(
-        default_factory=dict
-    )
+    columns: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
+    # Per-table probe errors keyed by table name. Populated when a probe
+    # fails (permission denied, table missing, warehouse unreachable, etc).
+    # Surfaced in the agent's user-facing response when the tables list is
+    # empty so the failure mode is visible without container access.
+    errors: dict[str, str] = Field(default_factory=dict)
 
 
 class CohortResult(BaseModel):
     """Final cohort definition and result."""
+
     cohort_id: str = ""
     patient_count: int = 0
     sql: str = ""
@@ -115,6 +131,7 @@ class CohortResult(BaseModel):
 @dataclass
 class AgentState:
     """Internal agent state during a conversation turn."""
+
     conversation_id: str
     turn_number: int
     user_message: str
@@ -128,6 +145,7 @@ class AgentState:
 
 class ChatRequest(BaseModel):
     """Request to the agent."""
+
     conversation_id: str
     messages: list[Message]
     user_id: Optional[str] = None
@@ -137,6 +155,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     """Response from the agent."""
+
     conversation_id: str
     message: Message
     tool_calls: list[ToolCall] = Field(default_factory=list)

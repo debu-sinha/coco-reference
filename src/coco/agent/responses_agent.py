@@ -110,6 +110,9 @@ def inspect_schema() -> str:
         return f"Schema inspection failed: {e}"
 
     if not result.tables:
+        if result.errors:
+            err_summary = "; ".join(f"{name}: {err}" for name, err in result.errors.items())
+            return f"No tables found in the schema. Probe errors per candidate: {err_summary}"
         return "No tables found in the schema. It may be empty or inaccessible."
 
     lines = []
