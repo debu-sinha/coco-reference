@@ -73,6 +73,37 @@ def main() -> int:
         print("\nCannot proceed without authentication. Fix your CLI profile.")
         return 1
 
+    # 1a. unique_id format
+    # Lakebase, Apps, and Vector Search endpoints require DNS-compliant
+    # names (no underscores). UC schemas require SQL identifiers (no
+    # hyphens). The setup notebook normalizes hyphens to underscores in
+    # the schema name, so the only safe characters across all resources
+    # are [a-z0-9-]. Underscores will break the Lakebase create step.
+    import re
+
+    print("\n1a. unique_id format")
+    uid = args.unique_id
+    if not uid:
+        fail("unique_id is empty.")
+    elif "_" in uid:
+        fail(
+            f"unique_id '{uid}' has '_' which breaks Lakebase. Use '-' instead (e.g. 'debu-sinha')."
+        )
+    elif not re.match(r"^[a-z0-9-]+$", uid):
+        fail(
+            f"unique_id '{uid}' has unsupported characters. Use only "
+            "lowercase letters, digits, and hyphens."
+        )
+    elif uid.startswith("-") or uid.endswith("-"):
+        fail(f"unique_id '{uid}' cannot start or end with a hyphen.")
+    elif len(uid) > 20:
+        warn(
+            f"unique_id '{uid}' is {len(uid)} chars. App names cap at ~30 chars "
+            "after the 'coco-' prefix, so keep this under ~20."
+        )
+    else:
+        ok(f"unique_id '{uid}' is DNS-compliant.")
+
     # 2. SQL Warehouse
     print("\n2. SQL Warehouse")
     try:

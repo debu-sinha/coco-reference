@@ -39,6 +39,13 @@ app_name = dbutils.widgets.get("app_name")
 agent_repo_volume = dbutils.widgets.get("agent_repo_volume")
 minimal = dbutils.widgets.get("minimal").lower() == "true"
 
+# SQL identifiers (catalog, schema, table) do not allow hyphens. But
+# unique_id may legitimately contain hyphens because Lakebase, Apps,
+# and Vector Search endpoint names all require DNS-compliant identifiers
+# (no underscores). Normalize the schema name once at the boundary so
+# every downstream CREATE SCHEMA and INSERT statement parses cleanly.
+schema = schema.replace("-", "_")
+
 print(f"Catalog: {catalog}")
 print(f"Schema: {schema}")
 print(f"Warehouse ID: {warehouse_id}")
@@ -70,6 +77,9 @@ agent_endpoint = dbutils.widgets.get("agent_endpoint")
 app_name = dbutils.widgets.get("app_name")
 agent_repo_volume = dbutils.widgets.get("agent_repo_volume")
 minimal = dbutils.widgets.get("minimal").lower() == "true"
+
+# Re-apply the SQL identifier normalization after the pip restart.
+schema = schema.replace("-", "_")
 
 import os
 import subprocess
@@ -192,6 +202,10 @@ agent_endpoint = dbutils.widgets.get("agent_endpoint")
 app_name = dbutils.widgets.get("app_name")
 agent_repo_volume = dbutils.widgets.get("agent_repo_volume")
 minimal = dbutils.widgets.get("minimal").lower() == "true"
+
+# Re-apply SQL identifier normalization after the kernel restart.
+schema = schema.replace("-", "_")
+
 knowledge_vol = "coco_knowledge"
 artifacts_vol = "coco_artifacts"
 
