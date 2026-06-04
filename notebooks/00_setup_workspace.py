@@ -1013,6 +1013,41 @@ app_spec = App(
     resources=app_resources,
 )
 
+# Patch the uploaded app.yaml with per-user catalog and schema. The
+# repo ships app.yaml with generic defaults (COCO_CATALOG_NAME=coco_demo,
+# COCO_SCHEMA_NAME=cohort_builder) so the file is committable, but at
+# deploy time the App container has to see the namespaced schema name
+# (cohort_builder_<unique_id>) so the agent's SQL tools query the right
+# tables. Bundle variables don't substitute into app.yaml, so we patch
+# the file in the workspace files path before w.apps.deploy_and_wait.
+import io as _io
+
+import yaml as _yaml
+from databricks.sdk.service.workspace import ImportFormat as _ImportFormat
+
+_app_yaml_path = f"{app_source_code_path}/app.yaml"
+try:
+    _yaml_bytes = _ws.workspace.download(_app_yaml_path).read()
+    _app_yaml = _yaml.safe_load(_yaml_bytes)
+    _patched = []
+    for _entry in _app_yaml.get("env", []):
+        if _entry.get("name") == "COCO_CATALOG_NAME":
+            _entry["value"] = catalog
+            _patched.append(f"COCO_CATALOG_NAME={catalog}")
+        elif _entry.get("name") == "COCO_SCHEMA_NAME":
+            _entry["value"] = schema
+            _patched.append(f"COCO_SCHEMA_NAME={schema}")
+    _new_bytes = _yaml.safe_dump(_app_yaml, sort_keys=False).encode("utf-8")
+    _ws.workspace.upload(
+        path=_app_yaml_path,
+        content=_io.BytesIO(_new_bytes),
+        format=_ImportFormat.AUTO,
+        overwrite=True,
+    )
+    print(f"Patched {_app_yaml_path}: {', '.join(_patched)}")
+except Exception as _yaml_err:
+    print(f"WARN: Could not patch app.yaml ({_yaml_err}); app may query wrong schema.")
+
 app_url = None
 print(f"Ensuring Databricks App: {app_name}")
 try:
