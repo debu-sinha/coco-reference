@@ -886,8 +886,37 @@ else:
         f"Check the Model Serving page in the Databricks UI."
     )
 
+# Grant Unity Catalog read access to the served-entity SP. Model Serving
+# auto-creates a service principal per endpoint to run the model code;
+# that SP has zero grants by default, so inspect_schema / execute_sql
+# return "no tables found" until we explicitly grant USE_CATALOG,
+# USE_SCHEMA, and SELECT on the cohort schema.
+try:
+    served_entities = endpoint.config.served_entities or []
+    sp_id = None
+    for se in served_entities:
+        sp_id = getattr(se, "creator", None) or sp_id
+    if sp_id:
+        print(f"Granting USE_CATALOG on {catalog} to served-entity SP {sp_id}")
+        w.grants.update(
+            securable_type="CATALOG",
+            full_name=catalog,
+            changes=[{"principal": sp_id, "add": ["USE_CATALOG"]}],
+        )
+        print(f"Granting USE_SCHEMA, SELECT on {catalog}.{schema} to {sp_id}")
+        w.grants.update(
+            securable_type="SCHEMA",
+            full_name=f"{catalog}.{schema}",
+            changes=[{"principal": sp_id, "add": ["USE_SCHEMA", "SELECT"]}],
+        )
+        print("Grants applied.")
+    else:
+        print("WARN: could not resolve served-entity SP; skipping grants.")
+except Exception as _grant_err:
+    print(f"WARN: granting served-entity SP failed: {_grant_err}")
+
 # Build the real invocation URL. Serving endpoints are always at
-# https://{host}/serving-endpoints/{name}/invocations — the workload_size
+# https://{host}/serving-endpoints/{name}/invocations - the workload_size
 # field on served_entities is just a sizing label ("Small", "Medium"), NOT a URL.
 workspace_host = w.config.host.rstrip("/")
 if not workspace_host.startswith("http"):
