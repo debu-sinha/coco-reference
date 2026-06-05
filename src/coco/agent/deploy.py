@@ -24,6 +24,7 @@ import tempfile
 import mlflow
 import mlflow.pyfunc
 from databricks import agents
+from mlflow.models.auth_policy import AuthPolicy, SystemAuthPolicy, UserAuthPolicy
 from mlflow.models.resources import (
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
@@ -244,6 +245,20 @@ def deploy_agent() -> None:
     try:
         with mlflow.start_run(run_name="coco-agent-deploy") as run:
             logger.info("Logging CoCo agent to MLflow run %s", run.info.run_id)
+            # The agent endpoint authenticates to the SQL warehouse as
+            # the requesting user (OBO), because the platform-managed
+            # serving SP lacks the databricks-sql-access workspace
+            # entitlement and cannot be modified. Log a UserAuthPolicy
+            # with the SDK API scopes the tools actually use, so the
+            # runtime accepts x-forwarded-access-token and exposes it
+            # via ModelServingUserCredentials inside predict_stream().
+            # The framework still grants the resources to the System
+            # SP (DatabricksTable / DatabricksSQLWarehouse), so SP-only
+            # callers (eval jobs, notebooks) keep working.
+            auth_policy = AuthPolicy(
+                system_auth_policy=SystemAuthPolicy(resources=_build_resources(config)),
+                user_auth_policy=UserAuthPolicy(api_scopes=["sql", "serving.serving-endpoints"]),
+            )
             logged = mlflow.pyfunc.log_model(
                 name="agent",
                 # models-from-code: pass the entry file path, NOT an instance
@@ -256,6 +271,7 @@ def deploy_agent() -> None:
                     "databricks-sdk>=0.30",
                     "databricks-vectorsearch>=0.40",
                     "databricks-agents>=1.1",
+                    "databricks-ai-bridge>=0.1",
                     "dspy>=2.5",
                     "httpx>=0.27",
                     "pydantic>=2.5",
@@ -264,7 +280,7 @@ def deploy_agent() -> None:
                     "pyarrow>=16",
                     "pandas>=2.2",
                 ],
-                resources=_build_resources(config),
+                auth_policy=auth_policy,
                 metadata={
                     "agent_type": "healthcare_cohort_builder",
                     "version": "2.0.0",

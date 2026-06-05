@@ -24,3 +24,16 @@ env:
     value: coco_demo
   - name: COCO_SCHEMA_NAME
     value: cohort_builder
+
+# Scopes for the user OBO flow. When a user opens the App, the Apps
+# platform forwards their identity to the App via x-forwarded-access-token.
+# Listing these scopes tells the platform to mint a downscoped user
+# token that the App can pass through to the agent endpoint. The
+# agent then calls SQL warehouse APIs as the requesting user, who
+# has the databricks-sql-access entitlement that the platform's
+# managed serving SP lacks. Lakebase is intentionally NOT in this
+# list because it does not support OBO; the App SP connects to
+# Lakebase via the typed `postgres` resource binding instead.
+user_api_scopes:
+  - sql
+  - serving.serving-endpoints

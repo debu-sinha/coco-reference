@@ -207,6 +207,7 @@ def _render_markdown(text: str) -> str:
 async def _agent_sse_stream(
     thread_id: UUID,
     user_id: str,
+    user_access_token: str,
     db: LakebaseClient,
     agent_client: AgentClient,
 ) -> AsyncGenerator[str, None]:
@@ -244,13 +245,16 @@ async def _agent_sse_stream(
         return
 
     async with lock:
-        async for frame in _invoke_one_turn(thread_id, user_id, db, agent_client):
+        async for frame in _invoke_one_turn(
+            thread_id, user_id, user_access_token, db, agent_client
+        ):
             yield frame
 
 
 async def _invoke_one_turn(
     thread_id: UUID,
     user_id: str,
+    user_access_token: str,
     db: LakebaseClient,
     agent_client: AgentClient,
 ) -> AsyncGenerator[str, None]:
@@ -314,7 +318,7 @@ async def _invoke_one_turn(
     # "try again" follow-up because there's no prior assistant context.
     async def _invoke_and_persist() -> tuple[Message | None, str, str | None]:
         try:
-            reply = await agent_client.invoke(history)
+            reply = await agent_client.invoke(history, user_access_token)
             err: str | None = None
         except asyncio.CancelledError:
             # The invoke call itself was torn down (app shutdown, agent
@@ -406,7 +410,7 @@ async def stream_endpoint(
     )
 
     return StreamingResponse(
-        _agent_sse_stream(thread_id, user.user_id, db, agent_client),
+        _agent_sse_stream(thread_id, user.user_id, user.access_token, db, agent_client),
         media_type="text/event-stream",
         headers={
             # Disable proxy buffering so the frame actually reaches the

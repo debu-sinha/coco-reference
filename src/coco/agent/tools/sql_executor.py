@@ -176,7 +176,19 @@ async def execute_sql(
         logger.error("execute_sql: no warehouse id in config")
         return SQLExecutorResult(statement_id=None, row_count=0)
 
-    ws = WorkspaceClient()
+    # OBO first: when the request carries an x-forwarded-access-token
+    # (i.e., the agent was called from the Databricks App), authenticate
+    # to the SQL warehouse as the requesting user. Their token has the
+    # databricks-sql-access workspace entitlement the platform-managed
+    # System SP lacks. Fall back to the default container credentials
+    # when no OBO token is present (direct SDK invokes).
+    try:
+        from databricks_ai_bridge import ModelServingUserCredentials
+
+        ws = WorkspaceClient(credentials_strategy=ModelServingUserCredentials())
+    except Exception as _obo_err:
+        logger.warning("OBO unavailable, falling back to SP auth: %s", _obo_err)
+        ws = WorkspaceClient()
     # The SDK's statement_execution API is synchronous. Park on a
     # worker thread so the agent event loop stays responsive.
     return await asyncio.to_thread(_run_statement_sync, ws, warehouse_id, sql, max_rows)

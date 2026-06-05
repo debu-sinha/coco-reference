@@ -28,11 +28,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from typing import Any
 
 from databricks.sdk import WorkspaceClient
-from databricks.sdk.service.sql import StatementState
 
 from coco.agent.models import SchemaInspectorResult
 from coco.config import get_config
@@ -56,46 +54,36 @@ def _probe_table_sync(
     warehouse_id: str,
     full_name: str,
 ) -> tuple[list[dict], str | None]:
-    """Run `SELECT * FROM <full_name> LIMIT 0` and return column metadata.
+    """Fetch table column metadata via the UC `tables.get` API.
 
     Returns a `(columns, error)` tuple. On success, `error` is None and
     `columns` is a list of `{name, type, comment, nullable}` dicts.
-    On failure (table doesn't exist, permission denied, warehouse
-    busy), returns `([], <error_message>)` rather than raising, so one
-    missing table doesn't kill the whole inspection.
+    On failure (table doesn't exist, no UC access), returns
+    `([], <error_message>)` rather than raising.
+
+    Why UC metadata API and not `SELECT * LIMIT 0`: the Mosaic AI Agent
+    Framework serving container runs as a platform-managed System
+    Service Principal that admins cannot modify, so it cannot be
+    granted the `databricks-sql-access` workspace entitlement that the
+    Statement Execution API requires. UC `tables.get` works with only
+    USE_CATALOG, USE_SCHEMA, and SELECT on the table (or BROWSE), which
+    the framework auto-grants through the `DatabricksTable(...)`
+    resource declaration on the logged model.
     """
+    # warehouse_id is intentionally unused now (UC metadata API doesn't
+    # need a warehouse). Kept in the signature so callers don't have to
+    # change.
+    del warehouse_id
     try:
-        r = ws.statement_execution.execute_statement(
-            statement=f"SELECT * FROM {full_name} LIMIT 0",
-            warehouse_id=warehouse_id,
-            wait_timeout="30s",
-        )
-        # Poll until terminal state
-        terminal = {StatementState.SUCCEEDED, StatementState.FAILED, StatementState.CANCELED}
-        deadline = time.monotonic() + 30.0
-        while r.status and r.status.state not in terminal:
-            if time.monotonic() > deadline:
-                return [], f"timed out polling {full_name}"
-            time.sleep(0.5)
-            r = ws.statement_execution.get_statement(r.statement_id)
-
-        if not r.status or r.status.state != StatementState.SUCCEEDED:
-            err = (r.status.error.message if r.status and r.status.error else None) or str(
-                r.status.state if r.status else "unknown"
-            )
-            return [], err
-
-        if not (r.manifest and r.manifest.schema and r.manifest.schema.columns):
-            return [], "no schema columns in manifest"
-
+        t = ws.tables.get(full_name)
         cols: list[dict] = []
-        for c in r.manifest.schema.columns:
+        for c in t.columns or []:
             cols.append(
                 {
                     "name": c.name or "",
                     "type": c.type_text or "STRING",
-                    "comment": "",
-                    "nullable": True,
+                    "comment": c.comment or "",
+                    "nullable": c.nullable if c.nullable is not None else True,
                 }
             )
         return cols, None
@@ -144,7 +132,16 @@ async def inspect_schema(tables: list[str] | None = None) -> SchemaInspectorResu
                 if t not in candidates:
                     candidates.append(t)
 
-        ws = WorkspaceClient()
+        try:
+            from databricks_ai_bridge import ModelServingUserCredentials
+
+            ws = WorkspaceClient(credentials_strategy=ModelServingUserCredentials())
+        except Exception as _obo_err:
+            logger.warning(
+                "inspect_schema: OBO unavailable, falling back to SP: %s",
+                _obo_err,
+            )
+            ws = WorkspaceClient()
         # Log the identity the agent authenticates as so workspace
         # entitlement issues (e.g. missing databricks-sql-access on the
         # served-entity SP) can be diagnosed without container access.

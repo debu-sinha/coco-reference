@@ -59,13 +59,13 @@ class AgentClient:
         self.endpoint_name = endpoint_name
         self.timeout = timeout
 
-    async def invoke(self, messages: list[dict]) -> str:
+    async def invoke(self, messages: list[dict], user_access_token: str = "") -> str:
         """Call the agent endpoint and return the final assistant text."""
-        return await asyncio.to_thread(self._invoke_sync, messages)
+        return await asyncio.to_thread(self._invoke_sync, messages, user_access_token)
 
     _MAX_INPUT_CHARS = 200_000  # ~50k tokens
 
-    def _invoke_sync(self, messages: list[dict]) -> str:
+    def _invoke_sync(self, messages: list[dict], user_access_token: str = "") -> str:
         total_chars = sum(len(str(m.get("content") or "")) for m in messages)
         if total_chars > self._MAX_INPUT_CHARS:
             raise ValueError(
@@ -82,6 +82,16 @@ class AgentClient:
             "Authorization": auth_headers["Authorization"],
             "Content-Type": "application/json",
         }
+        # Forward the user's OBO access token so the agent endpoint can
+        # authenticate as the requesting user when calling SQL warehouse
+        # and Unity Catalog APIs. The Mosaic AI Agent Framework reads
+        # this header inside the serving container and exposes the user
+        # workspace client via get_user_workspace_client(). Without
+        # this, the agent runs as the platform-managed System Service
+        # Principal which lacks the databricks-sql-access workspace
+        # entitlement and every Statement Execution call fails.
+        if user_access_token:
+            headers["X-Forwarded-Access-Token"] = user_access_token
         payload = {
             "input": [
                 {
