@@ -915,6 +915,43 @@ try:
 except Exception as _grant_err:
     print(f"WARN: granting served-entity SP failed: {_grant_err}")
 
+# Ensure the deployer has direct workspace entitlements. The Model Serving
+# runtime checks DIRECT entitlements on the principal that the agent
+# authenticates as, not entitlements inherited through groups. If the
+# deployer is an admin via group membership only (common in workshop
+# workspaces), their direct entitlements list is empty and every SQL
+# call from the agent fails with "missing databricks-sql-access or
+# workspace-consume entitlements". Patch the user via SCIM to add the
+# entitlements directly.
+try:
+    _me = w.current_user.me()
+    _me_id = getattr(_me, "id", None)
+    if _me_id:
+        print(f"Ensuring direct entitlements on user {_me.user_name} ({_me_id})")
+        _api = w.api_client
+        _api.do(
+            "PATCH",
+            f"/api/2.0/preview/scim/v2/Users/{_me_id}",
+            body={
+                "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+                "Operations": [
+                    {
+                        "op": "add",
+                        "path": "entitlements",
+                        "value": [
+                            {"value": "databricks-sql-access"},
+                            {"value": "workspace-access"},
+                        ],
+                    }
+                ],
+            },
+        )
+        print("Direct entitlements ensured.")
+    else:
+        print("WARN: could not resolve deployer user id; skipping entitlements patch.")
+except Exception as _ent_err:
+    print(f"WARN: ensuring direct entitlements failed: {_ent_err}")
+
 # Build the real invocation URL. Serving endpoints are always at
 # https://{host}/serving-endpoints/{name}/invocations - the workload_size
 # field on served_entities is just a sizing label ("Small", "Medium"), NOT a URL.
