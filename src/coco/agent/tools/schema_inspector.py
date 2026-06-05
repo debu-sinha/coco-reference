@@ -145,6 +145,19 @@ async def inspect_schema(tables: list[str] | None = None) -> SchemaInspectorResu
                     candidates.append(t)
 
         ws = WorkspaceClient()
+        # Log the identity the agent authenticates as so workspace
+        # entitlement issues (e.g. missing databricks-sql-access on the
+        # served-entity SP) can be diagnosed without container access.
+        try:
+            _me = ws.current_user.me()
+            _identity = f"{_me.user_name} (id={getattr(_me, 'id', '?')})"
+            logger.info("inspect_schema: runtime identity = %s", _identity)
+        except Exception as _id_err:
+            _identity = f"resolution failed: {_id_err}"
+            logger.warning(
+                "inspect_schema: could not resolve runtime identity: %s",
+                _id_err,
+            )
         table_list: list[dict] = []
         columns_by_table: dict[str, list[dict]] = {}
 
@@ -183,6 +196,12 @@ async def inspect_schema(tables: list[str] | None = None) -> SchemaInspectorResu
             sum(len(v) for v in columns_by_table.values()),
             len(errors),
         )
+        if not table_list and errors:
+            # Inject the runtime identity into the first error so the
+            # agent's user-facing response reveals exactly which principal
+            # is missing the workspace entitlements.
+            first_key = next(iter(errors))
+            errors[first_key] = f"[runtime identity: {_identity}] {errors[first_key]}"
         return SchemaInspectorResult(tables=table_list, columns=columns_by_table, errors=errors)
 
     except Exception as e:
