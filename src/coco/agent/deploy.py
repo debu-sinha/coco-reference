@@ -281,7 +281,13 @@ def deploy_agent() -> None:
             # callers (eval jobs, notebooks) keep working.
             auth_policy = AuthPolicy(
                 system_auth_policy=SystemAuthPolicy(resources=_build_resources(config)),
-                user_auth_policy=UserAuthPolicy(api_scopes=["sql", "serving.serving-endpoints"]),
+                user_auth_policy=UserAuthPolicy(
+                    api_scopes=[
+                        "sql",
+                        "serving.serving-endpoints",
+                        "unity-catalog",
+                    ]
+                ),
             )
             logged = mlflow.pyfunc.log_model(
                 name="agent",

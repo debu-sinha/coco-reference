@@ -37,3 +37,4 @@ env:
 user_api_scopes:
   - sql
   - serving.serving-endpoints
+  - unity-catalog
