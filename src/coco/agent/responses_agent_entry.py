@@ -54,6 +54,13 @@ class CocoResponsesAgent(ResponsesAgent):
         config_path = artifacts.get("coco_config")
         if config_path:
             os.environ["COCO_CONFIG_PATH"] = config_path
+        # Domain spec ships as an artifact too. Point the loader at it
+        # so coco.domain.load_domain() finds the right yaml inside the
+        # serving container (the repo's domains/ directory isn't present
+        # in the model artifact; only this single spec is).
+        domain_spec_path = artifacts.get("coco_domain")
+        if domain_spec_path:
+            os.environ["COCO_DOMAIN_SPEC"] = domain_spec_path
 
         if not os.environ.get("DATABRICKS_HOST"):
             try:

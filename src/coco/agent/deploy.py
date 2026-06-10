@@ -234,6 +234,30 @@ def deploy_agent() -> None:
     logger.info("Resolved config written to: %s", resolved_config_path)
     coco_config_file = resolved_config_path
 
+    # Also stage the active domain spec as a model artifact so it ships
+    # with the model and the agent code can read it inside the serving
+    # container. Same env-token resolution as the main config (the spec
+    # uses ${COCO_CATALOG_NAME} / ${COCO_SCHEMA_NAME} in the ontology
+    # index name and knowledge volume path).
+    _active_domain = os.environ.get("COCO_DOMAIN", "healthcare")
+    _domain_spec_src = os.path.join(repo_root, "domains", _active_domain, "domain.yaml")
+    if not os.path.exists(_domain_spec_src):
+        logger.warning(
+            "Domain spec not found at %s; falling back to healthcare reference.",
+            _domain_spec_src,
+        )
+        _active_domain = "healthcare"
+        _domain_spec_src = os.path.join(repo_root, "domains", "healthcare", "domain.yaml")
+    logger.info("Bundling domain spec: %s (%s)", _domain_spec_src, _active_domain)
+    with open(_domain_spec_src) as _f:
+        _raw_domain = yaml.safe_load(_f)
+    _resolved_domain = _resolve_env(_raw_domain)
+    _resolved_domain_path = os.path.join(tempfile.mkdtemp(prefix="coco-domain-"), "domain.yaml")
+    with open(_resolved_domain_path, "w") as _f:
+        yaml.dump(_resolved_domain, _f, default_flow_style=False, sort_keys=False)
+    logger.info("Resolved domain spec written to: %s", _resolved_domain_path)
+    coco_domain_file = _resolved_domain_path
+
     # Stage only the subpackages the agent needs at inference time so
     # we don't ship the FastAPI app, the data generator, and the raw
     # knowledge markdown into the model artifact (see _stage_runtime_code).
@@ -265,7 +289,10 @@ def deploy_agent() -> None:
                 python_model=entry_script,
                 input_example=example_request,
                 code_paths=[staged_coco_dir],
-                artifacts={"coco_config": coco_config_file},
+                artifacts={
+                    "coco_config": coco_config_file,
+                    "coco_domain": coco_domain_file,
+                },
                 pip_requirements=[
                     "mlflow>=3.1",
                     "databricks-sdk>=0.30",
@@ -323,6 +350,11 @@ def deploy_agent() -> None:
         "COCO_SCHEMA_NAME": os.environ.get("COCO_SCHEMA_NAME", ""),
         "COCO_WAREHOUSE_ID": os.environ.get("COCO_WAREHOUSE_ID", ""),
         "COCO_CONFIG_PATH": "config/default.yaml",
+        # Active domain name. The serving container's load_context reads
+        # the bundled domain artifact (artifacts["coco_domain"]) when
+        # this is set; load_context wires up COCO_DOMAIN_SPEC at startup
+        # so coco.domain.load_domain() resolves to the bundled spec.
+        "COCO_DOMAIN": _active_domain,
     }
     logger.info("Serving env vars: %s", _serving_env_vars)
 
