@@ -17,35 +17,56 @@ from coco.config import get_config
 logger = logging.getLogger(__name__)
 
 
-DEFAULTS: dict[str, str] = {
+# Prompt templates. The `{display_name}`, `{user_role}`, `{entity_type}`,
+# `{primary_action}`, and `{description}` placeholders are substituted
+# at load time from the active domain spec, so the SAME prompts run
+# for healthcare cohort analysis, marketplace listings, legal-code
+# lookup, etc. Forkers don't have to rewrite the prompts to adapt
+# CoCo to a new domain. See `coco.domain.Domain.render_template`.
+_DEFAULT_TEMPLATES: dict[str, str] = {
     "cohort_query": (
-        "You are a clinical data analyst for a healthcare real-world data "
-        "platform. Answer questions about patient cohorts by querying the "
-        "database on Databricks.\n\n"
+        "You are an assistant for {display_name}. You help a {user_role} "
+        "{primary_action} by querying the database on Databricks.\n\n"
+        "{description}\n\n"
         "You have tools for inspecting the database schema, looking up "
-        "clinical codes (ICD-10, NDC, CPT), generating SQL, executing SQL, "
-        "and searching a clinical knowledge base.\n\n"
+        "domain entities, generating SQL, executing SQL, and searching a "
+        "knowledge base.\n\n"
         "ALWAYS call inspect_schema first so you know the real table names "
         "and column types before generating SQL. ALWAYS use fully-qualified "
         "table names. ALWAYS pass generated SQL through execute_sql to get "
         "real results before answering."
     ),
     "clinical_codes": (
-        "Identify clinical codes from natural language.\n\n"
-        "Converts user input describing a medical condition, medication, or "
-        "procedure into standardized codes (ICD-10, NDC, CPT) with confidence."
+        "Identify domain entities from natural language.\n\n"
+        "Converts user input describing a {entity_type} into the canonical "
+        "codes or IDs that the data tables use, with confidence and rationale."
     ),
     "sql_generator": (
-        "Generate SQL for cohort queries.\n\n"
-        "Takes natural language cohort criteria and schema context, "
+        "Generate SQL for {entity_type} queries.\n\n"
+        "Takes natural language criteria and schema context, "
         "produces executable SQL and validation rationale."
     ),
     "response_synthesizer": (
-        "Synthesize final response to user.\n\n"
+        "Synthesize final response to the user.\n\n"
         "Takes user query, tool results, and execution context, "
         "produces natural language response with sample data and SQL."
     ),
 }
+
+
+def _rendered_defaults() -> dict[str, str]:
+    """Substitute the active domain's vocabulary into the default templates."""
+    try:
+        from coco.domain import get_domain
+
+        domain = get_domain()
+        return {k: domain.render_template(v) for k, v in _DEFAULT_TEMPLATES.items()}
+    except Exception as e:
+        logger.warning("Could not render domain templates (%s); using raw templates", e)
+        return dict(_DEFAULT_TEMPLATES)
+
+
+DEFAULTS: dict[str, str] = _rendered_defaults()
 
 
 def load_prompt(prompt_name: str) -> str:

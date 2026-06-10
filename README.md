@@ -1,10 +1,37 @@
-# CoCo v2 -- AI Cohort Copilot for Healthcare RWD
+# CoCo v2 -- AI Cohort Copilot
 
 **Author:** [debu-sinha](https://github.com/debu-sinha) (debusinha2009@gmail.com)
 
-CoCo is a natural-language cohort-building assistant for real-world healthcare data. Ask for a cohort ("Type 2 diabetes patients on metformin with recent labs") and CoCo identifies clinical codes, generates and validates SQL against a Databricks warehouse, executes the query, and synthesizes a response with sample rows and clinical context.
+CoCo is a natural-language cohort-building assistant. The reference
+domain is healthcare real-world data ("Type 2 diabetes patients on
+metformin with recent labs"), but the same agent runs against any
+domain by swapping a single config file.
 
-This repo is a **turnkey reference implementation**. Clone it, deploy the bundle, run the setup job, and you'll have a working Cohort Copilot in your own Databricks workspace in about 30 minutes. Multiple users can deploy to the same workspace without collisions. Each user gets their own namespaced resources.
+This repo is a **turnkey reference implementation**. Clone it, deploy
+the bundle, run the setup job, and you have a working Copilot in your
+own Databricks workspace in about 30 minutes. Multiple users deploy to
+the same workspace without collisions. Each user gets their own
+namespaced resources.
+
+## Fork it for your domain
+
+CoCo is designed to be forked. The healthcare reference ships in
+`domains/healthcare/domain.yaml`. To run the same agent against your
+own domain (marketplace listings, legal codes, manufacturing parts,
+HR data, anything), drop a new `domains/<your-domain>/domain.yaml`,
+point at your UC schema, and deploy with `--var domain=<your-domain>`.
+
+```bash
+databricks bundle deploy -t demo -p PROFILE \
+  --var unique_id=YOUR_ID \
+  --var warehouse_id=WH_ID \
+  --var catalog=CATALOG \
+  --var domain=your-domain         # picks domains/your-domain/domain.yaml
+```
+
+No agent code changes for most forks. See **[docs/FORK_GUIDE.md](docs/FORK_GUIDE.md)**
+for the fork-and-go walkthrough, and `domains/retail-marketplace/domain.yaml`
+for a worked example of a non-healthcare fork.
 
 ## Quick start
 

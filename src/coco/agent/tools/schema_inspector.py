@@ -37,16 +37,10 @@ from coco.config import get_config
 
 logger = logging.getLogger(__name__)
 
-# Expected cohort tables. Order matters for display consistency in
-# agent output.
-_COHORT_TABLE_ATTRS = (
-    "patients",
-    "diagnoses",
-    "prescriptions",
-    "procedures",
-    "claims",
-    "suppliers",
-)
+# Domain-specific table names are NOT hardcoded here anymore. The agent
+# reads the active domain spec (domains/<your-domain>/domain.yaml) and
+# uses the tables listed there. The healthcare reference domain still
+# lists patients/diagnoses/etc; see domains/healthcare/domain.yaml.
 
 
 def _probe_table_sync(
@@ -117,12 +111,11 @@ async def inspect_schema(tables: list[str] | None = None) -> SchemaInspectorResu
             return SchemaInspectorResult(tables=[], columns={})
 
         # Build the set of table names to probe. Default is every
-        # known cohort table from config; caller can narrow it.
-        candidates: list[str] = []
-        for attr in _COHORT_TABLE_ATTRS:
-            name = getattr(config.tables, attr, None)
-            if name:
-                candidates.append(name)
+        # table the active domain spec declares; caller can narrow it.
+        from coco.domain import get_domain
+
+        domain = get_domain()
+        candidates: list[str] = list(domain.table_names)
         if tables:
             wanted = set(tables)
             candidates = [c for c in candidates if c in wanted]

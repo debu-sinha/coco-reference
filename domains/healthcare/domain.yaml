@@ -1,0 +1,113 @@
+# CoCo domain spec - Healthcare cohort analysis
+#
+# This is the reference implementation. The original CoCo (the
+# HealthVerity workshop) is exactly this spec applied to the agent
+# code. Use it as the template when forking for your own domain.
+#
+# All domain-specific knobs live here. The agent code reads this file
+# at deploy time and adapts. See docs/FORK_GUIDE.md for the
+# fork-and-go walkthrough.
+
+domain:
+  name: "healthcare_cohort"
+  display_name: "Healthcare Cohort Analysis"
+  description: >
+    Build patient cohorts from real-world clinical data.
+    Answer questions about populations defined by diagnoses,
+    prescriptions, procedures, demographics, and time windows.
+
+# What the agent calls the user, the entities, and the primary action.
+# These flow into the system prompt and the tool descriptions so the
+# language matches the domain.
+vocabulary:
+  user_role: "clinician or clinical informatics analyst"
+  entity_type: "patient cohort"
+  primary_action: "build and validate a cohort query"
+
+# Data the agent queries. Two modes supported:
+#   1. existing_uc_schema: point at a schema you already populated
+#   2. synthetic: regenerate from the reference data generator (only
+#      the healthcare reference ships a generator today; for other
+#      domains use existing_uc_schema)
+data:
+  mode: "synthetic"
+  synthetic_generator: "coco.data_generator.generate"  # used when mode=synthetic
+  # Tables the agent is allowed to query. Names match what the data
+  # generator produces. If you point at an existing schema, change
+  # these to match your real table names.
+  tables:
+    - name: "patients"
+      description: "Patient demographics and enrollment dates"
+      primary_key: "patient_id"
+    - name: "diagnoses"
+      description: "ICD-10 diagnosis events per patient"
+      primary_key: "diagnosis_id"
+      foreign_keys:
+        patient_id: "patients"
+    - name: "prescriptions"
+      description: "Medication fills per patient"
+      primary_key: "rx_id"
+      foreign_keys:
+        patient_id: "patients"
+    - name: "procedures"
+      description: "Clinical procedures per patient (CPT codes)"
+      primary_key: "procedure_id"
+      foreign_keys:
+        patient_id: "patients"
+    - name: "claims"
+      description: "Claim line items linked to encounters"
+      primary_key: "claim_id"
+      foreign_keys:
+        patient_id: "patients"
+    - name: "suppliers"
+      description: "Provider directory referenced by claims"
+      primary_key: "supplier_id"
+
+# Domain ontology the agent looks up to translate user phrasing into
+# canonical codes. For healthcare this is ICD-10 diagnosis codes.
+ontology:
+  # Name of the tool exposed to the agent (becomes a DSPy tool).
+  tool_name: "identify_clinical_codes"
+  tool_description: >
+    Map a clinical condition phrase (e.g. "Type 2 diabetes") to the
+    canonical ICD-10 codes that the diagnoses table uses
+    (e.g. E11.*). Call this BEFORE generate_sql so the SQL filters
+    against real codes instead of free-text matching.
+  # Vector Search index that backs the lookup. Created by the setup
+  # notebook from the knowledge corpus path below.
+  source:
+    type: "vector_search"
+    index_name: "${COCO_CATALOG_NAME}.${COCO_SCHEMA_NAME}.coco_knowledge_idx"
+    text_column: "content"
+    primary_key: "chunk_id"
+    top_k: 5
+
+# Unstructured docs the agent retrieves with retrieve_knowledge.
+# Same VS index as ontology by default; split into a separate index
+# if your retrieval needs differ (e.g. policy docs vs code dictionary).
+knowledge:
+  # Path to the raw doc corpus on Unity Catalog Volumes. The setup
+  # notebook reads from here, chunks, and writes to the VS index.
+  source_volume_path: "/Volumes/${COCO_CATALOG_NAME}/${COCO_SCHEMA_NAME}/coco_knowledge"
+  chunk_size_tokens: 512
+  chunk_overlap_tokens: 50
+
+# SQL guardrails. The agent's execute_sql tool will reject anything
+# that doesn't pass these filters.
+sql_guardrails:
+  allowed_schemas:
+    - "${COCO_CATALOG_NAME}.${COCO_SCHEMA_NAME}"
+  blocked_keywords:
+    - "INSERT"
+    - "UPDATE"
+    - "DELETE"
+    - "DROP"
+    - "TRUNCATE"
+    - "ALTER"
+    - "GRANT"
+    - "REVOKE"
+
+# Eval golden set. Domain experts own building this. The eval notebook
+# (02_evaluate.py) reads from here.
+evaluation:
+  golden_set_path: "evaluation/scenarios.yaml"

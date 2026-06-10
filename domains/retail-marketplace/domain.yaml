@@ -1,0 +1,90 @@
+# CoCo domain spec - Retail marketplace listings
+#
+# Reference domain spec for a marketplace use case (think: RV listings,
+# car listings, real estate listings). The same agent code that runs
+# CoCo's healthcare workshop runs this domain by swapping this file
+# in and pointing at an existing UC schema with listings + inventory
+# tables. No code changes.
+#
+# This spec uses data.mode=existing_uc_schema, which is the path most
+# real customer forks should take. Provide your own catalog.schema in
+# the bundle vars and point the table names at what exists.
+
+domain:
+  name: "retail_marketplace"
+  display_name: "Marketplace Listing Assistant"
+  description: >
+    Answer natural language questions about marketplace listings:
+    inventory, pricing, dealer activity, geographic coverage,
+    feature breakdowns, and trend queries over time.
+
+vocabulary:
+  user_role: "marketplace operator or end shopper"
+  entity_type: "listing or listing cohort"
+  primary_action: "find and rank listings that match a query"
+
+data:
+  # BYO-data: point the agent at your existing UC schema. The setup
+  # notebook will NOT generate synthetic data in this mode.
+  mode: "existing_uc_schema"
+  # Tables the agent is allowed to query. Names match YOUR schema.
+  tables:
+    - name: "listings"
+      description: "Active marketplace listings with price, condition, location"
+      primary_key: "listing_id"
+    - name: "dealers"
+      description: "Dealer directory with name, location, rating"
+      primary_key: "dealer_id"
+    - name: "listing_features"
+      description: "Structured features per listing (year, make, model, options)"
+      primary_key: "feature_id"
+      foreign_keys:
+        listing_id: "listings"
+    - name: "price_history"
+      description: "Price change events per listing"
+      primary_key: "price_event_id"
+      foreign_keys:
+        listing_id: "listings"
+    - name: "user_interactions"
+      description: "Anonymized engagement events (views, saves, contacts)"
+      primary_key: "interaction_id"
+      foreign_keys:
+        listing_id: "listings"
+
+ontology:
+  tool_name: "identify_product_attributes"
+  tool_description: >
+    Map a free-text product attribute phrase (e.g. "trailer with bunk
+    beds and a queen-size bed") to the canonical feature codes used in
+    the listing_features table. Call this BEFORE generate_sql so the
+    SQL filters against the real feature codes instead of free text.
+  source:
+    type: "vector_search"
+    index_name: "${COCO_CATALOG_NAME}.${COCO_SCHEMA_NAME}.product_attributes_idx"
+    text_column: "content"
+    primary_key: "chunk_id"
+    top_k: 5
+
+knowledge:
+  # Drop your product taxonomy / feature dictionary / dealer policy
+  # docs into this Volume path. The setup notebook chunks them into
+  # the VS index that backs both ontology lookup and retrieve_knowledge.
+  source_volume_path: "/Volumes/${COCO_CATALOG_NAME}/${COCO_SCHEMA_NAME}/marketplace_knowledge"
+  chunk_size_tokens: 512
+  chunk_overlap_tokens: 50
+
+sql_guardrails:
+  allowed_schemas:
+    - "${COCO_CATALOG_NAME}.${COCO_SCHEMA_NAME}"
+  blocked_keywords:
+    - "INSERT"
+    - "UPDATE"
+    - "DELETE"
+    - "DROP"
+    - "TRUNCATE"
+    - "ALTER"
+    - "GRANT"
+    - "REVOKE"
+
+evaluation:
+  golden_set_path: "domains/retail-marketplace/golden_eval.yaml"

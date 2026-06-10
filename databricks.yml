@@ -39,8 +39,11 @@ variables:
     description: "URL of the agent Model Serving endpoint (filled per target)"
     default: ""
   minimal:
-    description: "If 'true', skip optional resources (Lakebase, Vector Search). Agent deploys against the core stack only — no session persistence, no knowledge RAG."
+    description: "If 'true', skip optional resources (Lakebase, Vector Search). Agent deploys against the core stack only - no session persistence, no knowledge RAG."
     default: "false"
+  domain:
+    description: "Domain spec the agent runs against. Resolves to `domains/<value>/domain.yaml`. Set to a directory name under domains/ when forking for a non-healthcare use case. See docs/FORK_GUIDE.md."
+    default: "healthcare"
 
 resources:
   jobs:
