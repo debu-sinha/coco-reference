@@ -125,16 +125,15 @@ async def inspect_schema(tables: list[str] | None = None) -> SchemaInspectorResu
                 if t not in candidates:
                     candidates.append(t)
 
-        try:
-            from databricks_ai_bridge import ModelServingUserCredentials
-
-            ws = WorkspaceClient(credentials_strategy=ModelServingUserCredentials())
-        except Exception as _obo_err:
-            logger.warning(
-                "inspect_schema: OBO unavailable, falling back to SP: %s",
-                _obo_err,
-            )
-            ws = WorkspaceClient()
+        # For UC metadata reads (tables.get), use the System SP via the
+        # default WorkspaceClient. The model is logged with
+        # DatabricksTable(...) resources, and the agent framework
+        # auto-grants the System SP SELECT/BROWSE on those tables, which
+        # is what tables.get needs. The forwarded user OBO token does NOT
+        # need the unity-catalog OAuth scope for this path because we
+        # are not using it. OBO is reserved for execute_sql where the
+        # user's sql scope is what matters.
+        ws = WorkspaceClient()
         # Log the identity the agent authenticates as so workspace
         # entitlement issues (e.g. missing databricks-sql-access on the
         # served-entity SP) can be diagnosed without container access.
