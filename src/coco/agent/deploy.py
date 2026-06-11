@@ -285,7 +285,6 @@ def deploy_agent() -> None:
                     api_scopes=[
                         "sql",
                         "serving.serving-endpoints",
-                        "unity-catalog",
                     ]
                 ),
             )
