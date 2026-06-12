@@ -1073,29 +1073,33 @@ app_resources = [
     ),
 ]
 
-# CoCo does not use on-behalf-of (OBO) user tokens — every data access
-# is made by the app's SP, whose permissions are granted explicitly
-# through the `resources` list above (warehouse CAN_USE, endpoint
-# CAN_QUERY, database CAN_CONNECT_AND_CREATE). So we ship the app
-# WITHOUT `user_api_scopes`.
+# CoCo uses on-behalf-of (OBO) for SQL execution. The agent's
+# execute_sql tool runs Statement Execution API calls as the requesting
+# user, because the platform-managed System Service Principal that
+# serves the agent endpoint cannot be granted the `databricks-sql-access`
+# workspace entitlement. The user's downscoped OAuth token (forwarded
+# via X-Forwarded-Access-Token) has it natively as long as the user has
+# the entitlement themselves, which is the default for any workspace
+# user who can run SQL.
 #
-# Why this matters for the workshop: including `user_api_scopes`
-# triggers the OAuth consent flow on the first page load, which on
-# workspaces without token-passthrough enabled (some
-# deployments) fails with an opaque "Something went wrong" screen.
-# Skipping scopes makes the app loadable on every workspace where the
-# Databricks Apps feature is enabled at all.
+# user_api_scopes below tells the Apps platform to mint a token with
+# these OAuth scopes when the user lands on the App. Without these,
+# the App's request to the agent endpoint carries no OBO token, the
+# agent's ModelServingUserCredentials() call fails, falls back to the
+# System SP, and execute_sql returns "0 rows / no column metadata" on
+# every query.
 #
-# If you later add an OBO-dependent feature (e.g., querying UC tables
-# AS the end user instead of as the SP), add the needed scopes to
-# `user_api_scopes` below AND ensure the target workspace has token
-# passthrough turned on in admin settings.
+# If the target workspace does not have user-authorization enabled,
+# this App.create call will fail with a clear error and the operator
+# can ask their admin to flip the preview flag.
+_app_user_api_scopes = ["sql", "serving.serving-endpoints"]
 
 app_spec = App(
     name=app_name,
     description="CoCo - Cohort Copilot for healthcare RWD",
     default_source_code_path=app_source_code_path,
     resources=app_resources,
+    user_api_scopes=_app_user_api_scopes,
 )
 
 # Patch the uploaded app.yaml with per-user catalog and schema. The
@@ -1160,6 +1164,49 @@ try:
     final_app = w.apps.get(name=app_name)
     app_url = final_app.url
     print(f"\nApp URL: {app_url}")
+
+    # Grant CAN_QUERY on the agent endpoint to the App SP. The
+    # `serving_endpoint` App resource binding declares this intent, but
+    # the binding only fires on the FIRST App deploy. If the endpoint
+    # was recreated after the App (which happens on any re-deploy that
+    # forces a new served entity), the ACL is wiped and the App's SP
+    # comes back to a clean grant of zero. Without this grant the App
+    # request reaches the endpoint as the App SP and 403s with
+    # "PERMISSION_DENIED ... You do not have permission to query the
+    # endpoint." Idempotent by construction: re-running PATCH with the
+    # same SP is a no-op if already granted.
+    try:
+        from databricks.sdk.service.serving import (
+            ServingEndpointAccessControlRequest,
+            ServingEndpointPermissionLevel,
+        )
+
+        _app_sp_app_id = final_app.service_principal_client_id
+        if _app_sp_app_id:
+            _ep = w.serving_endpoints.get(agent_endpoint)
+            w.serving_endpoints.update_permissions(
+                serving_endpoint_id=_ep.id,
+                access_control_list=[
+                    ServingEndpointAccessControlRequest(
+                        service_principal_name=_app_sp_app_id,
+                        permission_level=ServingEndpointPermissionLevel.CAN_QUERY,
+                    ),
+                ],
+            )
+            print(f"Granted CAN_QUERY on '{agent_endpoint}' to App SP ({_app_sp_app_id}).")
+        else:
+            print(
+                "WARN: App has no service_principal_client_id; cannot "
+                "auto-grant CAN_QUERY. Run the grant manually."
+            )
+    except Exception as _grant_err:
+        print(
+            f"WARN: Could not grant CAN_QUERY to App SP: {_grant_err}\n"
+            f"      The App will 403 when it tries to call the endpoint.\n"
+            f"      Run this once manually, then the App should work:\n"
+            f"        w.serving_endpoints.update_permissions(\n"
+            f"          serving_endpoint_id=<id>, access_control_list=[...])"
+        )
 except Exception as app_err:
     print(
         f"\nWARNING: Could not deploy Databricks App: {app_err}\n"
