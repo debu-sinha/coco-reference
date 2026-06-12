@@ -27,6 +27,12 @@ dbutils.widgets.text(
 # The app will boot without Lakebase (sessions will 503 at runtime) and
 # without a VS index (the retrieve_knowledge tool returns empty).
 dbutils.widgets.dropdown("minimal", "false", ["false", "true"], "Minimal mode (skip Lakebase + VS)")
+# Domain spec the agent runs against. Resolves to
+# domains/<value>/domain.yaml. The bundle passes this through as a
+# base_parameter from --var domain=<value>. Healthcare is the
+# reference; non-healthcare forks (e.g. retail-marketplace) supply
+# their own domain folder. See docs/FORK_GUIDE.md.
+dbutils.widgets.text("domain", "healthcare", "Domain spec name (domains/<name>/domain.yaml)")
 
 # Retrieve widget values
 catalog = dbutils.widgets.get("catalog")
@@ -38,6 +44,7 @@ agent_endpoint = dbutils.widgets.get("agent_endpoint")
 app_name = dbutils.widgets.get("app_name")
 agent_repo_volume = dbutils.widgets.get("agent_repo_volume")
 minimal = dbutils.widgets.get("minimal").lower() == "true"
+domain = dbutils.widgets.get("domain") or "healthcare"
 
 # SQL identifiers (catalog, schema, table) do not allow hyphens. But
 # unique_id may legitimately contain hyphens because Lakebase, Apps,
@@ -55,6 +62,7 @@ print(f"Agent endpoint: {agent_endpoint}")
 print(f"App name: {app_name}")
 print(f"Agent repo volume: {agent_repo_volume}")
 print(f"Minimal mode: {minimal}  (Lakebase + VS {'SKIPPED' if minimal else 'included'})")
+print(f"Domain spec: {domain}  (resolves to domains/{domain}/domain.yaml)")
 
 # COMMAND ----------
 # MAGIC %md
@@ -77,12 +85,19 @@ agent_endpoint = dbutils.widgets.get("agent_endpoint")
 app_name = dbutils.widgets.get("app_name")
 agent_repo_volume = dbutils.widgets.get("agent_repo_volume")
 minimal = dbutils.widgets.get("minimal").lower() == "true"
+domain = dbutils.widgets.get("domain") or "healthcare"
 
 # Re-apply the SQL identifier normalization after the pip restart.
 schema = schema.replace("-", "_")
 
 import os
 import subprocess
+
+# Make the active domain visible to every coco.* import in this kernel.
+# coco.agent.deploy reads COCO_DOMAIN to pick domains/<name>/domain.yaml
+# and ship it as a model artifact. Setting it here, before any coco.*
+# import, makes sure deploy.py sees it.
+os.environ["COCO_DOMAIN"] = domain
 import sys
 
 # --- Serverless sys.path fix ---
@@ -202,6 +217,10 @@ agent_endpoint = dbutils.widgets.get("agent_endpoint")
 app_name = dbutils.widgets.get("app_name")
 agent_repo_volume = dbutils.widgets.get("agent_repo_volume")
 minimal = dbutils.widgets.get("minimal").lower() == "true"
+domain = dbutils.widgets.get("domain") or "healthcare"
+import os
+
+os.environ["COCO_DOMAIN"] = domain
 
 # Re-apply SQL identifier normalization after the kernel restart.
 schema = schema.replace("-", "_")

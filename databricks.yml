@@ -67,6 +67,7 @@ resources:
               app_name: ${var.app_name}
               agent_repo_volume: ${workspace.file_path}
               minimal: ${var.minimal}
+              domain: ${var.domain}
           environment_key: default
           timeout_seconds: 3600
       max_concurrent_runs: 1
