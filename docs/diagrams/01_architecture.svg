@@ -1,68 +1,52 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="860" viewBox="20 0 1400 860">
-<defs><marker id="arrow-1b1b1f" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#1b1b1f" /></marker><marker id="arrow-6741d9" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#6741d9" /></marker><style>text { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }</style></defs>
-<text x="480" y="48" font-size="28" fill="#1b1b1f">CoCo end-to-end architecture</text>
-<text x="340" y="76" font-size="14" fill="#1b1b1f">What runs, what calls what, when a user asks a question in the chat UI</text>
-<rect x="600" y="110" width="300" height="55" rx="8" stroke="#1971c2" fill="#d0ebff" stroke-width="2" />
-<text x="750" y="137.5" font-size="18" fill="#1971c2" text-anchor="middle" dominant-baseline="central">User browser</text>
-<path d="M 750 167 L 750 207" stroke="#1b1b1f" fill="none" stroke-width="2" marker-end="url(#arrow-1b1b1f)" />
-<rect x="500" y="210" width="500" height="80" rx="8" stroke="#1971c2" fill="#d0ebff" stroke-width="2" />
-<text x="750" y="250" font-size="16" fill="#1971c2" text-anchor="middle" dominant-baseline="central">Databricks App
-FastAPI + HTMX + SSE</text>
-<text x="1020" y="242" font-size="12" fill="#666">Forwards user OBO token
-as X-Forwarded-Access-Token</text>
-<path d="M 750 290 L 750 335" stroke="#1b1b1f" fill="none" stroke-width="2" marker-end="url(#arrow-1b1b1f)" />
-<rect x="260" y="340" width="600" height="185" rx="8" stroke="#e67700" fill="#fff9db" stroke-width="2" />
-<text x="560" y="432.5" font-size="14" fill="#e67700" text-anchor="middle" dominant-baseline="central">Agent serving endpoint
-MLflow ResponsesAgent wraps DSPy ReAct loop
-User identity via ModelServingUserCredentials
-System SP via DatabricksTable resources
-Reads active domain from coco/domain.yaml artifact</text>
-<rect x="890" y="340" width="390" height="185" rx="8" stroke="#6741d9" fill="#e5dbff" stroke-width="2" />
-<text x="1085" y="432.5" font-size="14" fill="#6741d9" text-anchor="middle" dominant-baseline="central">Observability
-MLflow Traces (auto + manual spans)
-judge.align with SIMBA default optimizer
-Prompt Registry (versioned, UC-governed)
-4-layer cost attribution dashboard</text>
-<path d="M 860 432 L 890 432" stroke="#6741d9" fill="none" stroke-width="2" marker-end="url(#arrow-6741d9)" />
-<path d="M 360 525 L 360 560" stroke="#1b1b1f" fill="none" stroke-width="2" marker-end="url(#arrow-1b1b1f)" />
-<path d="M 560 525 L 560 560" stroke="#1b1b1f" fill="none" stroke-width="2" marker-end="url(#arrow-1b1b1f)" />
-<path d="M 760 525 L 760 560" stroke="#1b1b1f" fill="none" stroke-width="2" marker-end="url(#arrow-1b1b1f)" />
-<rect x="260" y="560" width="200" height="70" rx="8" stroke="#2f9e44" fill="#d3f9d8" stroke-width="2" />
-<text x="360" y="595" font-size="13" fill="#2f9e44" text-anchor="middle" dominant-baseline="central">Domain entity lookup
-(from domain.yaml)</text>
-<rect x="480" y="560" width="160" height="70" rx="8" stroke="#2f9e44" fill="#d3f9d8" stroke-width="2" />
-<text x="560" y="595" font-size="13" fill="#2f9e44" text-anchor="middle" dominant-baseline="central">generate_sql</text>
-<rect x="660" y="560" width="200" height="70" rx="8" stroke="#2f9e44" fill="#d3f9d8" stroke-width="2" />
-<text x="760" y="595" font-size="13" fill="#2f9e44" text-anchor="middle" dominant-baseline="central">execute_sql
-(via OBO sql scope)</text>
-<path d="M 360 630 L 500 675" stroke="#1b1b1f" fill="none" stroke-width="2" marker-end="url(#arrow-1b1b1f)" />
-<path d="M 560 630 L 220 675" stroke="#1b1b1f" fill="none" stroke-width="2" marker-end="url(#arrow-1b1b1f)" />
-<path d="M 760 630 L 920 675" stroke="#1b1b1f" fill="none" stroke-width="2" marker-end="url(#arrow-1b1b1f)" />
-<rect x="40" y="680" width="300" height="160" rx="8" stroke="#e67700" fill="#fff4e6" stroke-width="2" />
-<text x="190" y="760" font-size="13" fill="#e67700" text-anchor="middle" dominant-baseline="central">LLM access
-Foundation Model APIs
-Unity AI Gateway
-(PII filter, rate limit,
-fallback model on 5xx)
-Claude Sonnet 4.x</text>
-<rect x="380" y="680" width="320" height="160" rx="8" stroke="#e67700" fill="#fff4e6" stroke-width="2" />
-<text x="540" y="760" font-size="13" fill="#e67700" text-anchor="middle" dominant-baseline="central">Knowledge + ontology
-AI Search hybrid index
-(semantic + keyword BM25)
-built from UC Volume corpus
-at domain.knowledge.source_volume_path</text>
-<rect x="740" y="680" width="320" height="160" rx="8" stroke="#e67700" fill="#fff4e6" stroke-width="2" />
-<text x="900" y="760" font-size="13" fill="#e67700" text-anchor="middle" dominant-baseline="central">Data + state
-Unity Catalog tables
-(domain.data.tables)
-SQL Warehouse for execute_sql
-Lakebase for session threads
-(SP-only, OBO not supported)</text>
-<rect x="1100" y="680" width="300" height="160" rx="8" stroke="#c92a2a" fill="#ffe3e3" stroke-width="2" />
-<text x="1250" y="760" font-size="13" fill="#c92a2a" text-anchor="middle" dominant-baseline="central">Deploy + cost
-Declarative Automation Bundles
-per-user unique_id namespacing
-4-layer cost attribution
-MLflow registered model
-in Unity Catalog</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1020" viewBox="0 0 1400 1020" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+<defs>
+<marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+<polygon points="0 0, 10 3.5, 0 7" fill="#1b1b1f" />
+</marker>
+</defs>
+<rect width="100%" height="100%" fill="#ffffff" />
+<text x="700" y="50" font-size="28" fill="#1b1b1f" text-anchor="middle" font-weight="600"><tspan x="700" dy="0">CoCo end-to-end architecture</tspan></text>
+<text x="700" y="82" font-size="14" fill="#444" text-anchor="middle"><tspan x="700" dy="0">What runs, what calls what, when a user asks a question in the chat UI</tspan></text>
+<rect x="550" y="120" width="300" height="60" rx="10" ry="10" fill="#d0ebff" stroke="#1971c2" stroke-width="2" />
+<text x="700" y="156" font-size="18" fill="#1971c2" text-anchor="middle" font-weight="600"><tspan x="700" dy="0">User browser</tspan></text>
+<line x1="700" y1="180" x2="700" y2="220" stroke="#1b1b1f" stroke-width="2" marker-end="url(#arrow)" />
+<rect x="450" y="230" width="500" height="90" rx="10" ry="10" fill="#d0ebff" stroke="#1971c2" stroke-width="2" />
+<text x="700" y="260" font-size="17" fill="#1971c2" text-anchor="middle" font-weight="600"><tspan x="700" dy="0">Databricks App</tspan></text>
+<text x="700" y="285" font-size="12" fill="#1971c2" text-anchor="middle"><tspan x="700" dy="0">FastAPI + HTMX + SSE</tspan><tspan x="700" dy="1.25em">Forwards user OBO token via X-Forwarded-Access-Token</tspan></text>
+<line x1="700" y1="320" x2="700" y2="360" stroke="#1b1b1f" stroke-width="2" marker-end="url(#arrow)" />
+<rect x="60" y="370" width="880" height="200" rx="10" ry="10" fill="#fff9db" stroke="#e67700" stroke-width="2" />
+<text x="500" y="402" font-size="17" fill="#e67700" text-anchor="middle" font-weight="600"><tspan x="500" dy="0">Agent serving endpoint</tspan></text>
+<text x="500" y="430" font-size="13" fill="#444" text-anchor="middle"><tspan x="500" dy="0">MLflow ResponsesAgent wraps a DSPy ReAct loop (max 7 iterations)</tspan><tspan x="500" dy="1.25em">User identity via ModelServingUserCredentials (sql, serving.serving-endpoints)</tspan><tspan x="500" dy="1.25em">System SP via DatabricksTable + DatabricksSQLWarehouse + DatabricksServingEndpoint</tspan><tspan x="500" dy="1.25em">Reads active domain spec from coco_domain artifact at load_context</tspan></text>
+<rect x="970" y="370" width="370" height="200" rx="10" ry="10" fill="#e5dbff" stroke="#6741d9" stroke-width="2" />
+<text x="1155" y="402" font-size="17" fill="#6741d9" text-anchor="middle" font-weight="600"><tspan x="1155" dy="0">Observability</tspan></text>
+<text x="1155" y="430" font-size="13" fill="#444" text-anchor="middle"><tspan x="1155" dy="0">MLflow Traces (auto + manual spans)</tspan><tspan x="1155" dy="1.25em">judge.align with SIMBA default optimizer</tspan><tspan x="1155" dy="1.25em">Prompt Registry, versioned in UC</tspan><tspan x="1155" dy="1.25em">4-layer cost attribution dashboard</tspan></text>
+<line x1="940" y1="470" x2="970" y2="470" stroke="#1b1b1f" stroke-width="2" marker-end="url(#arrow)" />
+<line x1="220" y1="570" x2="220" y2="610" stroke="#1b1b1f" stroke-width="2" marker-end="url(#arrow)" />
+<line x1="500" y1="570" x2="500" y2="610" stroke="#1b1b1f" stroke-width="2" marker-end="url(#arrow)" />
+<line x1="780" y1="570" x2="780" y2="610" stroke="#1b1b1f" stroke-width="2" marker-end="url(#arrow)" />
+<rect x="80" y="610" width="280" height="70" rx="10" ry="10" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2" />
+<text x="220" y="640" font-size="14" fill="#2f9e44" text-anchor="middle" font-weight="600"><tspan x="220" dy="0">Domain entity lookup</tspan></text>
+<text x="220" y="662" font-size="11" fill="#444" text-anchor="middle"><tspan x="220" dy="0">from domain.yaml ontology source</tspan></text>
+<rect x="380" y="610" width="240" height="70" rx="10" ry="10" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2" />
+<text x="500" y="640" font-size="14" fill="#2f9e44" text-anchor="middle" font-weight="600"><tspan x="500" dy="0">generate_sql</tspan></text>
+<text x="500" y="662" font-size="11" fill="#444" text-anchor="middle"><tspan x="500" dy="0">uses domain.sql_guardrails</tspan></text>
+<rect x="640" y="610" width="280" height="70" rx="10" ry="10" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2" />
+<text x="780" y="640" font-size="14" fill="#2f9e44" text-anchor="middle" font-weight="600"><tspan x="780" dy="0">execute_sql</tspan></text>
+<text x="780" y="662" font-size="11" fill="#444" text-anchor="middle"><tspan x="780" dy="0">via user OBO sql scope</tspan></text>
+<line x1="220" y1="680" x2="200" y2="740" stroke="#1b1b1f" stroke-width="2" marker-end="url(#arrow)" />
+<line x1="500" y1="680" x2="540" y2="740" stroke="#1b1b1f" stroke-width="2" marker-end="url(#arrow)" />
+<line x1="780" y1="680" x2="880" y2="740" stroke="#1b1b1f" stroke-width="2" marker-end="url(#arrow)" />
+<line x1="780" y1="680" x2="1210" y2="740" stroke="#1b1b1f" stroke-width="2" marker-end="url(#arrow)" />
+<rect x="40" y="740" width="320" height="220" rx="10" ry="10" fill="#fff4e6" stroke="#e67700" stroke-width="2" />
+<text x="200" y="770" font-size="15" fill="#e67700" text-anchor="middle" font-weight="600"><tspan x="200" dy="0">LLM access</tspan></text>
+<text x="200" y="800" font-size="12" fill="#444" text-anchor="middle"><tspan x="200" dy="0">Foundation Model APIs</tspan><tspan x="200" dy="1.25em">Unity AI Gateway</tspan><tspan x="200" dy="1.25em">(PII filter, rate limit,</tspan><tspan x="200" dy="1.25em">fallback model on 5xx)</tspan><tspan x="200" dy="1.25em">Claude Sonnet 4.x</tspan></text>
+<rect x="380" y="740" width="340" height="220" rx="10" ry="10" fill="#fff4e6" stroke="#e67700" stroke-width="2" />
+<text x="550" y="770" font-size="15" fill="#e67700" text-anchor="middle" font-weight="600"><tspan x="550" dy="0">Knowledge + ontology</tspan></text>
+<text x="550" y="800" font-size="12" fill="#444" text-anchor="middle"><tspan x="550" dy="0">AI Search hybrid index</tspan><tspan x="550" dy="1.25em">(semantic + keyword BM25)</tspan><tspan x="550" dy="1.25em">built from UC Volume corpus at</tspan><tspan x="550" dy="1.25em">domain.knowledge.source_volume_path</tspan></text>
+<rect x="740" y="740" width="340" height="220" rx="10" ry="10" fill="#fff4e6" stroke="#e67700" stroke-width="2" />
+<text x="910" y="770" font-size="15" fill="#e67700" text-anchor="middle" font-weight="600"><tspan x="910" dy="0">Data + state</tspan></text>
+<text x="910" y="800" font-size="12" fill="#444" text-anchor="middle"><tspan x="910" dy="0">Unity Catalog tables</tspan><tspan x="910" dy="1.25em">(domain.data.tables)</tspan><tspan x="910" dy="1.25em">SQL Warehouse for execute_sql</tspan><tspan x="910" dy="1.25em">Lakebase for session threads</tspan><tspan x="910" dy="1.25em">(SP-only, OBO not supported)</tspan></text>
+<rect x="1100" y="740" width="280" height="220" rx="10" ry="10" fill="#ffe3e3" stroke="#c92a2a" stroke-width="2" />
+<text x="1240" y="770" font-size="15" fill="#c92a2a" text-anchor="middle" font-weight="600"><tspan x="1240" dy="0">Deploy + cost</tspan></text>
+<text x="1240" y="800" font-size="12" fill="#444" text-anchor="middle"><tspan x="1240" dy="0">Declarative Automation Bundles</tspan><tspan x="1240" dy="1.25em">per-user unique_id namespacing</tspan><tspan x="1240" dy="1.25em">4-layer cost attribution</tspan><tspan x="1240" dy="1.25em">MLflow registered model</tspan><tspan x="1240" dy="1.25em">in Unity Catalog</tspan></text>
 </svg>

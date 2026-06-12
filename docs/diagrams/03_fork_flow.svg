@@ -1,52 +1,45 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1450" height="870" viewBox="40 10 1450 870">
-<defs><marker id="arrow-1b1b1f" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#1b1b1f" /></marker><style>text { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }</style></defs>
-<text x="380" y="58" font-size="28" fill="#1b1b1f">Forking CoCo for a new domain</text>
-<text x="240" y="84" font-size="14" fill="#1b1b1f">What YOU change vs what the CODE handles. The domain.yaml file is the only seam.</text>
-<rect x="60" y="130" width="620" height="60" rx="8" stroke="#1971c2" fill="#e7f5ff" stroke-width="2" />
-<text x="290" y="163" font-size="18" fill="#1971c2">What you provide</text>
-<rect x="720" y="130" width="750" height="60" rx="8" stroke="#e67700" fill="#fff4e6" stroke-width="2" />
-<text x="1000" y="163" font-size="18" fill="#e67700">What the code handles</text>
-<rect x="60" y="220" width="620" height="110" rx="8" stroke="#1971c2" fill="#d0ebff" stroke-width="2" />
-<text x="80" y="255" font-size="15" fill="#1971c2">1.  domains/&lt;your-name&gt;/domain.yaml</text>
-<text x="80" y="277" font-size="12" fill="#1971c2">Domain vocabulary, table list, primary-key joins,
-ontology source (vector index), SQL guardrails,
-few-shot examples, evaluation prompts.</text>
-<path d="M 680 275 L 720 275" stroke="#1b1b1f" fill="none" stroke-width="2" marker-end="url(#arrow-1b1b1f)" />
-<rect x="720" y="220" width="750" height="110" rx="8" stroke="#e67700" fill="#fff9db" stroke-width="2" />
-<text x="740" y="255" font-size="15" fill="#e67700">Domain loader (src/coco/domain.py)</text>
-<text x="740" y="277" font-size="12" fill="#e67700">Parses YAML, expands ${VAR} env refs, hands a typed Domain object to every component:
-prompts, tools, deploy, agent runtime. Validates required fields. Caches per process.</text>
-<rect x="60" y="360" width="620" height="110" rx="8" stroke="#1971c2" fill="#d0ebff" stroke-width="2" />
-<text x="80" y="395" font-size="15" fill="#1971c2">2.  Your Unity Catalog tables (data.mode: existing_uc_schema)</text>
-<text x="80" y="422" font-size="12" fill="#1971c2">Either point at tables already in UC, or use data.mode: synthetic with the
-built-in healthcare generator. Tables must match domain.yaml table list.</text>
-<path d="M 680 415 L 720 415" stroke="#1b1b1f" fill="none" stroke-width="2" marker-end="url(#arrow-1b1b1f)" />
-<rect x="720" y="360" width="750" height="110" rx="8" stroke="#e67700" fill="#fff9db" stroke-width="2" />
-<text x="740" y="395" font-size="15" fill="#e67700">schema_inspector tool</text>
-<text x="740" y="417" font-size="12" fill="#e67700">Reads domain.table_names at chat time, probes each table via UC tables.get,
-feeds column metadata into the SQL generator prompt. No code change needed
-when you swap domains.</text>
-<rect x="60" y="500" width="620" height="110" rx="8" stroke="#1971c2" fill="#d0ebff" stroke-width="2" />
-<text x="80" y="535" font-size="15" fill="#1971c2">3.  Knowledge documents in a UC Volume</text>
-<text x="80" y="557" font-size="12" fill="#1971c2">Drop your PDFs / markdown / text into
-/Volumes/&lt;catalog&gt;/&lt;schema&gt;/&lt;knowledge.source_volume_path&gt;/.</text>
-<path d="M 680 555 L 720 555" stroke="#1b1b1f" fill="none" stroke-width="2" marker-end="url(#arrow-1b1b1f)" />
-<rect x="720" y="500" width="750" height="110" rx="8" stroke="#e67700" fill="#fff9db" stroke-width="2" />
-<text x="740" y="535" font-size="15" fill="#e67700">Corpus chunker + AI Search hybrid index</text>
-<text x="740" y="557" font-size="12" fill="#e67700">Setup notebook reads every file in your Volume, chunks it, embeds it, and
-builds a hybrid (semantic + BM25) index that the ontology tool queries
-through domain.ontology.source.index_name.</text>
-<rect x="60" y="640" width="620" height="90" rx="8" stroke="#1971c2" fill="#d0ebff" stroke-width="2" />
-<text x="80" y="675" font-size="15" fill="#1971c2">4.  Bundle deploy with --var domain=&lt;your-name&gt;</text>
-<text x="80" y="697" font-size="12" fill="#1971c2">databricks bundle deploy -t demo --var domain=retail-marketplace
-databricks bundle run setup_workspace -t demo --var domain=retail-marketplace</text>
-<path d="M 680 685 L 720 685" stroke="#1b1b1f" fill="none" stroke-width="2" marker-end="url(#arrow-1b1b1f)" />
-<rect x="720" y="640" width="750" height="90" rx="8" stroke="#e67700" fill="#fff9db" stroke-width="2" />
-<text x="740" y="675" font-size="15" fill="#e67700">Setup job runs in order: tables -&gt; corpus -&gt; index -&gt; agent -&gt; App</text>
-<text x="740" y="697" font-size="12" fill="#e67700">Domain spec ships as MLflow artifact to the serving container. Agent picks
-it up at load_context. Prompts, tools, guardrails all reflect new domain.</text>
-<rect x="60" y="760" width="1410" height="100" rx="8" stroke="#2f9e44" fill="#d3f9d8" stroke-width="2" />
-<text x="510" y="794" font-size="16" fill="#2f9e44">What you do NOT change</text>
-<text x="90" y="818" font-size="13" fill="#2f9e44">Agent code, ReAct loop, prompt structure, MLflow integration, AuthPolicy, App frontend, deployment automation, observability, evaluation framework.</text>
-<text x="90" y="843" font-size="13" fill="#2f9e44">If you find yourself editing any of those for a new domain, the domain.yaml schema is the bug, not your code. File an issue.</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1000" viewBox="0 0 1500 1000" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+<defs>
+<marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+<polygon points="0 0, 10 3.5, 0 7" fill="#1b1b1f" />
+</marker>
+</defs>
+<rect width="100%" height="100%" fill="#ffffff" />
+<text x="750" y="50" font-size="28" fill="#1b1b1f" text-anchor="middle" font-weight="600"><tspan x="750" dy="0">Forking CoCo for a new domain</tspan></text>
+<text x="750" y="82" font-size="14" fill="#444" text-anchor="middle"><tspan x="750" dy="0">What you change vs what the code handles. The domain.yaml file is the only seam.</tspan></text>
+<rect x="60" y="120" width="620" height="50" rx="10" ry="10" fill="#e7f5ff" stroke="#1971c2" stroke-width="2" />
+<text x="370" y="152" font-size="18" fill="#1971c2" text-anchor="middle" font-weight="600"><tspan x="370" dy="0">What you provide</tspan></text>
+<rect x="740" y="120" width="700" height="50" rx="10" ry="10" fill="#fff4e6" stroke="#e67700" stroke-width="2" />
+<text x="1090" y="152" font-size="18" fill="#e67700" text-anchor="middle" font-weight="600"><tspan x="1090" dy="0">What the code handles</tspan></text>
+<rect x="60" y="190" width="620" height="125" rx="10" ry="10" fill="#d0ebff" stroke="#1971c2" stroke-width="2" />
+<text x="80" y="218" font-size="15" fill="#1971c2" text-anchor="start" font-weight="600"><tspan x="80" dy="0">1.  domains/&lt;your-name&gt;/domain.yaml</tspan></text>
+<text x="80" y="244" font-size="12" fill="#333" text-anchor="start"><tspan x="80" dy="0">Domain vocabulary, table list, primary-key joins,</tspan><tspan x="80" dy="1.25em">ontology source (vector index), SQL guardrails,</tspan><tspan x="80" dy="1.25em">few-shot examples, evaluation prompts.</tspan></text>
+<rect x="740" y="190" width="700" height="125" rx="10" ry="10" fill="#fff9db" stroke="#e67700" stroke-width="2" />
+<text x="760" y="218" font-size="15" fill="#e67700" text-anchor="start" font-weight="600"><tspan x="760" dy="0">Domain loader (src/coco/domain.py)</tspan></text>
+<text x="760" y="244" font-size="12" fill="#333" text-anchor="start"><tspan x="760" dy="0">Parses YAML, expands ${VAR} env refs, hands a typed Domain object</tspan><tspan x="760" dy="1.25em">to every component: prompts, tools, deploy, agent runtime.</tspan><tspan x="760" dy="1.25em">Validates required fields. Caches per process.</tspan></text>
+<line x1="685" y1="252" x2="735" y2="252" stroke="#1b1b1f" stroke-width="2" marker-end="url(#arrow)" />
+<rect x="60" y="333" width="620" height="125" rx="10" ry="10" fill="#d0ebff" stroke="#1971c2" stroke-width="2" />
+<text x="80" y="361" font-size="15" fill="#1971c2" text-anchor="start" font-weight="600"><tspan x="80" dy="0">2.  Your Unity Catalog tables</tspan></text>
+<text x="80" y="387" font-size="12" fill="#333" text-anchor="start"><tspan x="80" dy="0">Either point at tables already in UC</tspan><tspan x="80" dy="1.25em">(data.mode: existing_uc_schema), or use the built-in</tspan><tspan x="80" dy="1.25em">healthcare synthetic generator (data.mode: synthetic).</tspan></text>
+<rect x="740" y="333" width="700" height="125" rx="10" ry="10" fill="#fff9db" stroke="#e67700" stroke-width="2" />
+<text x="760" y="361" font-size="15" fill="#e67700" text-anchor="start" font-weight="600"><tspan x="760" dy="0">schema_inspector tool</tspan></text>
+<text x="760" y="387" font-size="12" fill="#333" text-anchor="start"><tspan x="760" dy="0">Reads domain.table_names at chat time, probes each table</tspan><tspan x="760" dy="1.25em">via UC tables.get, feeds column metadata into the SQL</tspan><tspan x="760" dy="1.25em">generator prompt. No code change when you swap domains.</tspan></text>
+<line x1="685" y1="395" x2="735" y2="395" stroke="#1b1b1f" stroke-width="2" marker-end="url(#arrow)" />
+<rect x="60" y="476" width="620" height="125" rx="10" ry="10" fill="#d0ebff" stroke="#1971c2" stroke-width="2" />
+<text x="80" y="504" font-size="15" fill="#1971c2" text-anchor="start" font-weight="600"><tspan x="80" dy="0">3.  Knowledge documents in a UC Volume</tspan></text>
+<text x="80" y="530" font-size="12" fill="#333" text-anchor="start"><tspan x="80" dy="0">Drop your PDFs, markdown, or text into</tspan><tspan x="80" dy="1.25em">/Volumes/&lt;catalog&gt;/&lt;schema&gt;/&lt;knowledge.source_volume_path&gt;/.</tspan><tspan x="80" dy="1.25em">Use the CLI, a notebook, or the Catalog Explorer UI.</tspan></text>
+<rect x="740" y="476" width="700" height="125" rx="10" ry="10" fill="#fff9db" stroke="#e67700" stroke-width="2" />
+<text x="760" y="504" font-size="15" fill="#e67700" text-anchor="start" font-weight="600"><tspan x="760" dy="0">Corpus chunker + AI Search hybrid index</tspan></text>
+<text x="760" y="530" font-size="12" fill="#333" text-anchor="start"><tspan x="760" dy="0">Setup reads every file in your Volume, chunks it, embeds it,</tspan><tspan x="760" dy="1.25em">and builds a hybrid (semantic + BM25) index that the</tspan><tspan x="760" dy="1.25em">ontology tool queries via domain.ontology.source.index_name.</tspan></text>
+<line x1="685" y1="538" x2="735" y2="538" stroke="#1b1b1f" stroke-width="2" marker-end="url(#arrow)" />
+<rect x="60" y="619" width="620" height="125" rx="10" ry="10" fill="#d0ebff" stroke="#1971c2" stroke-width="2" />
+<text x="80" y="647" font-size="15" fill="#1971c2" text-anchor="start" font-weight="600"><tspan x="80" dy="0">4.  Bundle deploy with --var domain=&lt;your-name&gt;</tspan></text>
+<text x="80" y="673" font-size="12" fill="#333" text-anchor="start"><tspan x="80" dy="0">databricks bundle deploy -t demo --var domain=retail-marketplace</tspan><tspan x="80" dy="1.25em">databricks bundle run setup_workspace -t demo \</tspan><tspan x="80" dy="1.25em">  --var domain=retail-marketplace</tspan></text>
+<rect x="740" y="619" width="700" height="125" rx="10" ry="10" fill="#fff9db" stroke="#e67700" stroke-width="2" />
+<text x="760" y="647" font-size="15" fill="#e67700" text-anchor="start" font-weight="600"><tspan x="760" dy="0">Setup job: tables -&gt; corpus -&gt; index -&gt; agent -&gt; App</tspan></text>
+<text x="760" y="673" font-size="12" fill="#333" text-anchor="start"><tspan x="760" dy="0">Domain spec ships as an MLflow artifact to the serving container.</tspan><tspan x="760" dy="1.25em">Agent picks it up at load_context. Prompts, tools, and guardrails</tspan><tspan x="760" dy="1.25em">all reflect the new domain at first request.</tspan></text>
+<line x1="685" y1="681" x2="735" y2="681" stroke="#1b1b1f" stroke-width="2" marker-end="url(#arrow)" />
+<rect x="60" y="772" width="1380" height="130" rx="10" ry="10" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2" />
+<text x="750" y="804" font-size="16" fill="#2f9e44" text-anchor="middle" font-weight="600"><tspan x="750" dy="0">What you do NOT change</tspan></text>
+<text x="750" y="834" font-size="13" fill="#333" text-anchor="middle"><tspan x="750" dy="0">Agent code, ReAct loop, prompt structure, MLflow integration,</tspan><tspan x="750" dy="1.25em">AuthPolicy, App frontend, deployment automation, observability, evaluation framework.</tspan><tspan x="750" dy="1.25em">If you find yourself editing any of those for a new domain, the domain.yaml schema is the bug, not your code.</tspan></text>
 </svg>
