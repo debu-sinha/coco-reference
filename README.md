@@ -13,6 +13,17 @@ own Databricks workspace in about 30 minutes. Multiple users deploy to
 the same workspace without collisions. Each user gets their own
 namespaced resources.
 
+## New here? Start in this order
+
+If you have never deployed an agentic app on Databricks before, read
+these three before touching a CLI. Each is short and self-contained.
+
+1. **[notebooks/01_overview_and_deployment_order.py](notebooks/01_overview_and_deployment_order.py)**. 10-minute walkthrough of what gets deployed, in what order, and how to debug each step. Written for someone who has never used Databricks Apps, Model Serving, or Vector Search.
+2. **[docs/diagrams/01_architecture.svg](docs/diagrams/01_architecture.svg)**. One-page architecture diagram. What runs, what calls what, when a user asks a question.
+3. **[docs/diagrams/02_deployment_order.svg](docs/diagrams/02_deployment_order.svg)**. The seven steps the setup job runs, in order, with the failure mode for each.
+
+Then come back here for the deploy commands.
+
 ## Fork it for your domain
 
 CoCo is designed to be forked. The healthcare reference ships in
@@ -31,7 +42,10 @@ databricks bundle deploy -t demo -p PROFILE \
 
 No agent code changes for most forks. See **[docs/FORK_GUIDE.md](docs/FORK_GUIDE.md)**
 for the fork-and-go walkthrough, and `domains/retail-marketplace/domain.yaml`
-for a worked example of a non-healthcare fork.
+for a worked example of a non-healthcare fork. The
+**[fork-flow diagram](docs/diagrams/03_fork_flow.svg)** shows the exact
+split between what you provide (the YAML, the tables, the documents, the
+deploy command) and what the code handles (everything else).
 
 ## Quick start
 
@@ -202,7 +216,10 @@ Things that work today but might bite you in specific conditions. Check [`CHANGE
 
 ## Architecture
 
-![CoCo request flow](docs/design/diagrams/request-flow.svg)
+![CoCo request flow](docs/diagrams/01_architecture.svg)
+
+The same diagram exists at `docs/design/diagrams/request-flow.svg` for the
+deeper architecture writeup linked below.
 
 The agent uses `dspy.ReAct` with native tool calling. Claude decides which tools to call (inspect_schema, identify_clinical_codes, generate_sql, execute_sql, retrieve_knowledge) based on tool definitions derived from Python function docstrings. No keyword-matched planner, no separate planning prompt. The model IS the planner. Every tool call is decorated with `@mlflow.trace` for full observability.
 

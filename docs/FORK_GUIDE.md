@@ -8,6 +8,17 @@ code changes for most domains.
 
 This guide walks through the end-to-end fork.
 
+## Before you start
+
+If this is your first time working with Databricks Apps, Model Serving,
+or Vector Search, read these first. They take about 15 minutes total.
+
+- **[notebooks/01_overview_and_deployment_order.py](../notebooks/01_overview_and_deployment_order.py)** for what gets deployed and in what order.
+- **[docs/diagrams/01_architecture.svg](diagrams/01_architecture.svg)** for the one-page runtime architecture.
+- **[docs/diagrams/03_fork_flow.svg](diagrams/03_fork_flow.svg)** for the fork-flow picture: what you provide vs what the code handles.
+
+Then come back here.
+
 ## What you'll have at the end
 
 A working CoCo deployment in your own Databricks workspace where the
@@ -30,10 +41,13 @@ streaming UI, same observability, same cost attribution.
 
 ## Step 1: Clone the repo
 
-```
-gh repo clone debu-sinha/coco-reference your-domain-coco
+```bash
+git clone https://github.com/debu-sinha/coco-reference.git your-domain-coco
 cd your-domain-coco
 ```
+
+If you have the GitHub CLI installed, `gh repo clone debu-sinha/coco-reference your-domain-coco`
+works too.
 
 ## Step 2: Pick a domain name and write your domain.yaml
 
@@ -145,10 +159,28 @@ and write the equivalent for your domain.
 
 ## Step 4: Drop your knowledge docs into the Volume
 
+You have two options. Pick the one that matches where your source docs
+live.
+
+**From your laptop** using the Databricks CLI:
+
+```bash
+databricks fs cp -r ./local/path/to/docs \
+  dbfs:/Volumes/<catalog>/<schema>/your_knowledge/ \
+  -p your-profile
+```
+
+**Inside a Databricks notebook** (if your docs are already in DBFS or
+a cloud bucket):
+
 ```python
 volume_path = f"/Volumes/{catalog}/{schema}/your_knowledge"
 dbutils.fs.cp("file:/local/path/to/docs/", f"dbfs:{volume_path}/", recurse=True)
 ```
+
+You can also just drag files into the Volume from the Catalog Explorer
+in the workspace UI. CoCo does not care how the files got there, only
+that they exist at the path your `domain.yaml` declares.
 
 The setup notebook chunks anything in that path and writes to the Vector
 Search index named by your `ontology.source.index_name`.
@@ -241,9 +273,13 @@ that's usually a signal the abstraction should be lifted into
 - **Ontology tool returns nothing**: the VS index is empty. Re-run the
   knowledge corpus chunking step in the setup notebook with your docs
   in place at `knowledge.source_volume_path`.
-- **SQL execution returns PermissionDenied**: the served-entity SP needs
-  workspace entitlements. The setup notebook handles this automatically
-  per the fixes already in the repo (see the OBO commit).
+- **SQL execution returns PermissionDenied**: the served-entity service
+  principal cannot access the warehouse or your schema. The setup
+  notebook auto-grants `CAN_USE` on the warehouse and `SELECT` on each
+  table in your domain spec. If you added a table to `domain.yaml`
+  AFTER the setup ran, re-run the setup job; the grant step is
+  idempotent. The wider auth model is in
+  [`docs/design/apps-mosaic-ai-agent-reference.md`](design/apps-mosaic-ai-agent-reference.md).
 
 ## Reference
 

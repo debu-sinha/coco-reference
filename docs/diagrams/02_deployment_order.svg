@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1570" height="1010" viewBox="40 0 1570 1010">
+<defs><marker id="arrow-1b1b1f" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#1b1b1f" /></marker><style>text { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }</style></defs>
+<text x="480" y="48" font-size="28" fill="#1b1b1f">CoCo deployment order</text>
+<text x="320" y="74" font-size="14" fill="#1b1b1f">Each step depends on the ones above it. The setup_workspace job automates the full sequence.</text>
+<rect x="60" y="120" width="1280" height="90" rx="8" stroke="#1971c2" fill="#e7f5ff" stroke-width="2" />
+<text x="700" y="165" font-size="14" fill="#1971c2" text-anchor="middle" dominant-baseline="central">Step 1.  Unity Catalog catalog + schema
+CREATE SCHEMA &lt;catalog&gt;.&lt;schema&gt;. Volumes for knowledge corpus and artifacts. Everything else lives in here.
+If this fails: you lack CREATE SCHEMA grant on the catalog. Ask a UC admin.</text>
+<path d="M 700 215 L 700 245" stroke="#1b1b1f" fill="none" stroke-width="2" marker-end="url(#arrow-1b1b1f)" />
+<rect x="60" y="250" width="1280" height="90" rx="8" stroke="#e67700" fill="#fff4e6" stroke-width="2" />
+<text x="700" y="295" font-size="14" fill="#e67700" text-anchor="middle" dominant-baseline="central">Step 2.  Data tables
+Mode = synthetic: the data_generator builds patients/diagnoses/etc. with Faker (healthcare only).
+Mode = existing_uc_schema: you load your own domain tables into the schema before this step (see FORK_GUIDE).</text>
+<path d="M 700 345 L 700 375" stroke="#1b1b1f" fill="none" stroke-width="2" marker-end="url(#arrow-1b1b1f)" />
+<rect x="60" y="380" width="1280" height="90" rx="8" stroke="#e67700" fill="#fff4e6" stroke-width="2" />
+<text x="700" y="425" font-size="14" fill="#e67700" text-anchor="middle" dominant-baseline="central">Step 3.  Knowledge corpus drop into UC Volume
+Your reference docs go in /Volumes/&lt;catalog&gt;/&lt;schema&gt;/&lt;corpus&gt;/.  Setup chunks them and writes to the AI Search index.
+Domain spec field: knowledge.source_volume_path</text>
+<path d="M 700 475 L 700 505" stroke="#1b1b1f" fill="none" stroke-width="2" marker-end="url(#arrow-1b1b1f)" />
+<rect x="60" y="510" width="1280" height="90" rx="8" stroke="#e67700" fill="#fff9db" stroke-width="2" />
+<text x="700" y="555" font-size="14" fill="#e67700" text-anchor="middle" dominant-baseline="central">Step 4.  Vector Search endpoint + hybrid index
+Endpoint creation can take ~10 minutes on a cold workspace.  Index reads from the chunked corpus table.
+If this fails: VS endpoint quota or wrong region. Domain spec field: ontology.source.index_name</text>
+<path d="M 700 605 L 700 635" stroke="#1b1b1f" fill="none" stroke-width="2" marker-end="url(#arrow-1b1b1f)" />
+<rect x="60" y="640" width="1280" height="90" rx="8" stroke="#e67700" fill="#fff9db" stroke-width="2" />
+<text x="700" y="685" font-size="14" fill="#e67700" text-anchor="middle" dominant-baseline="central">Step 5.  Lakebase instance + database (optional)
+Postgres-backed chat thread store.  Skip with --var minimal=true if Lakebase is unavailable; sessions then live in memory.
+Lakebase does not support OBO; the App SP connects via the postgres resource binding.</text>
+<path d="M 700 735 L 700 765" stroke="#1b1b1f" fill="none" stroke-width="2" marker-end="url(#arrow-1b1b1f)" />
+<rect x="60" y="770" width="1280" height="90" rx="8" stroke="#e67700" fill="#fff9db" stroke-width="2" />
+<text x="700" y="815" font-size="14" fill="#e67700" text-anchor="middle" dominant-baseline="central">Step 6.  Agent on Model Serving
+log_model with AuthPolicy (SystemAuthPolicy for SP-grants, UserAuthPolicy for OBO scopes).  Register in UC.  agents.deploy.
+If this fails: warehouse CAN_USE missing, or unity-catalog scope conflict.  Check the Serving Endpoint UI for the deployment_state_message.</text>
+<path d="M 700 865 L 700 895" stroke="#1b1b1f" fill="none" stroke-width="2" marker-end="url(#arrow-1b1b1f)" />
+<rect x="60" y="900" width="1280" height="90" rx="8" stroke="#1971c2" fill="#d0ebff" stroke-width="2" />
+<text x="700" y="945" font-size="14" fill="#1971c2" text-anchor="middle" dominant-baseline="central">Step 7.  Databricks App
+FastAPI frontend bound to warehouse + agent endpoint + Lakebase via typed AppResource bindings.
+user_api_scopes: sql, serving.serving-endpoints (so the App can forward an OBO token to the agent).</text>
+<rect x="1370" y="380" width="220" height="480" rx="8" stroke="#666" fill="#f8f9fa" stroke-width="1" />
+<text x="1480" y="620" font-size="12" fill="#666" text-anchor="middle" dominant-baseline="central">Domain spec
+domains/&lt;name&gt;/domain.yaml
+
+This one file drives:
++ Step 2 table names
++ Step 3 corpus path
++ Step 4 index name
++ Step 6 agent prompt + tools
++ Step 6 SQL guardrails
+
+Bundle var:
+--var domain=&lt;name&gt;
+
+Fork? Change here only.</text>
+</svg>
