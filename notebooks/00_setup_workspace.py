@@ -1139,14 +1139,67 @@ except Exception as _yaml_err:
 
 app_url = None
 print(f"Ensuring Databricks App: {app_name}")
+
+
+def _apps_update_or_recreate(_w, _name, _spec):
+    """Update the app spec, falling back to delete + recreate on a
+    resource-grant rejection.
+
+    The Apps PATCH endpoint diffs the spec against current state and
+    requires the caller to be able to grant CAN_* on every resource it
+    treats as "added." If the App's existing resources got cleared (e.g.
+    by a prior partial update, or by recreating an underlying Lakebase
+    instance) and the caller does not hold admin rights on every
+    resource in the new spec, PATCH 400s with:
+        "User does not have permission to grant permissions for added
+         resource: <name>"
+    even though the same caller created the resource originally.
+
+    apps.create_and_wait does NOT hit this path because CREATE attaches
+    every resource at App-creation time as the caller, which the
+    platform allows. So when PATCH refuses, recreate.
+    """
+    try:
+        _w.apps.update(name=_name, app=_spec)
+        return
+    except Exception as _upd_err:
+        msg = str(_upd_err)
+        if "does not have permission to grant permissions for added resource" not in msg:
+            raise
+        print(
+            f"WARN: apps.update rejected ({msg.splitlines()[0]}). "
+            f"Falling back to delete + recreate so resource bindings "
+            f"can be reattached as part of CREATE."
+        )
+        try:
+            _w.apps.delete(name=_name)
+        except Exception as _del_err:
+            print(f"WARN: delete during recreate path failed: {_del_err}")
+        # The platform's free-up is async; brief retry to absorb
+        # propagation lag rather than failing the whole setup.
+        import time as _t
+
+        for _attempt in range(6):
+            try:
+                _w.apps.create_and_wait(app=_spec)
+                print("App recreated with full resource bindings.")
+                return
+            except Exception as _cr_err:
+                if _attempt == 5:
+                    raise
+                print(f"  recreate attempt {_attempt + 1} failed: {_cr_err}; retrying...")
+                _t.sleep(10)
+
+
 try:
     try:
         existing = w.apps.get(name=app_name)
-        print(
-            f"App '{app_name}' already exists (status={existing.app_status}); updating source path."
-        )
-        w.apps.update(name=app_name, app=app_spec)
+        print(f"App '{app_name}' already exists (status={existing.app_status}); updating spec.")
+        _apps_update_or_recreate(w, app_name, app_spec)
     except Exception as e:
+        # Catch only the not-found case; everything else should bubble.
+        if "does not have permission to grant" in str(e):
+            raise
         print(f"App not found ({e.__class__.__name__}); creating...")
         w.apps.create_and_wait(app=app_spec)
         print(f"App '{app_name}' created.")
